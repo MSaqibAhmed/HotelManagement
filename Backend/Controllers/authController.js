@@ -1,14 +1,19 @@
 import User from "../Models/userModel.js";
 import bcrypt from "bcryptjs";
 import generateToken from "../config/tokenGenerate.js";
+
+// ✅ GUEST ONLY REGISTER
 export const registerUser = async (req, res) => {
   try {
-    const { name, email, password, phone, address} = req.body;
+    const { name, email, password, phone, address } = req.body;
+
     if (!name || !email || !phone || !address || !password) {
       return res.status(400).json({ message: "Please fill all the fields" });
     }
 
-    const existingUser = await User.findOne({ email });
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
@@ -16,30 +21,41 @@ export const registerUser = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = await User.create({
-      name,
-      email,
+      name: name.trim(),
+      email: normalizedEmail,
       password: hashedPassword,
-      phone,
-      address,
-      role:"guest",
-      isActive: true
+      phone: phone.trim(),
+      address: address.trim(),
+      role: "guest",
+      isActive: true,
     });
 
-    res.status(201).json({
+    // ✅ remove password from response
+    const userSafe = await User.findById(newUser._id).select("-password");
+
+    return res.status(201).json({
       message: "User registered successfully",
-      user: newUser,
-      role: newUser.role
+      user: userSafe,
+      role: userSafe.role,
     });
   } catch (err) {
-    res.status(500).json({ message: "Registration failed", error: err.message });
+    return res.status(500).json({ message: "Registration failed", error: err.message });
   }
 };
+
+// ✅ ALL ROLES LOGIN
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ message: "User Not Avaliable" });
+    if (!email || !password) {
+      return res.status(400).json({ message: "Please provide email and password" });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user) return res.status(401).json({ message: "User not available" });
     if (!user.isActive) return res.status(403).json({ message: "Account deactivated" });
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -47,48 +63,64 @@ export const loginUser = async (req, res) => {
 
     const token = generateToken(user);
 
-    res.json({
+    const userSafe = await User.findById(user._id).select("-password");
+
+    return res.json({
       token,
-      role: user.role,
-      user
+      role: userSafe.role,
+      user: userSafe,
     });
   } catch (err) {
-    res.status(500).json({ message: "Login failed", error: err.message });
+    return res.status(500).json({ message: "Login failed", error: err.message });
   }
 };
 
+// ✅ ADMIN ONLY CREATE STAFF
+export const createStaff = async (req, res) => {
+  try {
+    const { name, email, password, phone, address, department, role } = req.body;
 
-export const createStaff = async (req,res)=>{
-  try{
-    const { name, email, password, phone, address, department, role }= req.body;
-    if(!name || !email || !password || !phone || !address || !department || !role){
+    if (!name || !email || !password || !phone || !address || !department || !role) {
       return res.status(400).json({ message: "Please fill all the fields" });
     }
+
+    // Defense-in-depth (route already protects)
+    if (req.user?.role !== "admin") {
+      return res.status(403).json({ message: "Only admin can create staff" });
+    }
+
     const allowedRoles = ["admin", "manager", "receptionist", "housekeeping", "maintenance"];
-    if(!allowedRoles.includes(role)){
+    if (!allowedRoles.includes(role)) {
       return res.status(400).json({ message: "Invalid role specified" });
     }
-    const existingUser = await User.findOne({ email });
-    if(existingUser){
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
+
     const hashedPassword = await bcrypt.hash(password, 10);
+
     const newStaff = await User.create({
-      name,
-      email,
+      name: name.trim(),
+      email: normalizedEmail,
       password: hashedPassword,
-      phone,
-      address,
-      department,
+      phone: phone.trim(),
+      address: address.trim(),
+      department: department.trim(),
       role,
-      isActive: true
-    });
-    res.status(201).json({
-      message: "Staff created successfully",
-      staff: newStaff
+      isActive: true,
     });
 
-  }catch(err){
-    res.status(500).json({ message: "Staff creation failed", error: err.message });
+    const staffSafe = await User.findById(newStaff._id).select("-password");
+
+    return res.status(201).json({
+      message: "Staff created successfully",
+      staff: staffSafe,
+    });
+  } catch (err) {
+    return res.status(500).json({ message: "Staff creation failed", error: err.message });
   }
-}
+};

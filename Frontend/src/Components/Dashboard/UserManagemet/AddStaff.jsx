@@ -88,7 +88,7 @@ const AddStaff = () => {
       });
 
       toast.success("Staff created successfully");
-      navigate("/dashboard");
+      navigate("/dashboard/user-management/staff");
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to create staff");
     } finally {
@@ -97,114 +97,167 @@ const AddStaff = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-80px)] flex items-start justify-center px-4 sm:px-6 lg:px-8 py-8">
-      
-      <div className="w-full max-w-4xl bg-white rounded-2xl shadow-lg border border-gray-200 p-6 sm:p-8">
+    <div className="min-h-[calc(100vh-80px)] px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <div className="w-full max-w-5xl mx-auto">
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-5 sm:p-7 lg:p-8">
+          {/* Header */}
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-[#1e266d]">
+              Add New Staff
+            </h1>
+            <p className="text-gray-500 mt-1 text-sm sm:text-base">
+              Create a new staff account
+            </p>
+          </div>
 
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#1e266d]">
-            Add New Staff
-          </h1>
-          <p className="text-gray-500 mt-1 text-sm">
-            Create a new staff account
-          </p>
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+              {/* Name */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  placeholder="Enter full name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none"
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  placeholder="Email (@gmail.com)"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none"
+                />
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Phone
+                </label>
+                <input
+                  type="tel"
+                  name="phone"
+                  placeholder="Enter phone number"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none"
+                />
+              </div>
+
+              {/* Department */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Department
+                </label>
+                <input
+                  type="text"
+                  name="department"
+                  placeholder="e.g. Front Desk"
+                  value={formData.department}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none"
+                />
+              </div>
+
+              {/* Role */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Role
+                </label>
+                <select
+                  name="role"
+                  value={formData.role}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none bg-white"
+                >
+                  <option value="manager">Manager</option>
+                  <option value="receptionist">Receptionist</option>
+                  <option value="housekeeping">Housekeeping</option>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+
+              {/* Address */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Address
+                </label>
+                <textarea
+                  name="address"
+                  placeholder="Enter full address"
+                  value={formData.address}
+                  onChange={handleChange}
+                  rows="3"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none resize-none"
+                />
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  name="password"
+                  placeholder="Enter password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none"
+                />
+              </div>
+
+              {/* Confirm Password */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Confirm Password
+                </label>
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  placeholder="Confirm password"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div className="pt-2 flex flex-col sm:flex-row gap-3 sm:justify-end">
+              <button
+                type="button"
+                onClick={() => navigate("/dashboard/user-management/staff")}
+                className="w-full sm:w-auto px-6 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full sm:w-auto min-w-[170px] bg-[#1e1e1e] text-white py-3 px-6 rounded-xl font-bold hover:bg-black transition disabled:opacity-60"
+              >
+                {loading ? "Creating..." : "Create Staff"}
+              </button>
+            </div>
+          </form>
         </div>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-
-          {/* Grid Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-            <input
-              type="text"
-              name="name"
-              placeholder="Full Name"
-              value={formData.name}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none"
-            />
-
-            <input
-              type="email"
-              name="email"
-              placeholder="Email (@gmail.com)"
-              value={formData.email}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none"
-            />
-
-            <input
-              type="tel"
-              name="phone"
-              placeholder="Phone"
-              value={formData.phone}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none"
-            />
-
-            <input
-              type="text"
-              name="department"
-              placeholder="Department"
-              value={formData.department}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none"
-            />
-
-            <select
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none"
-            >
-              <option value="manager">Manager</option>
-              <option value="receptionist">Receptionist</option>
-              <option value="housekeeping">Housekeeping</option>
-              <option value="maintenance">Maintenance</option>
-              <option value="admin">Admin</option>
-            </select>
-
-            <textarea
-              name="address"
-              placeholder="Address"
-              value={formData.address}
-              onChange={handleChange}
-              rows="3"
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none resize-none md:col-span-2"
-            />
-
-            <input
-              type="password"
-              name="password"
-              placeholder="Password"
-              value={formData.password}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none"
-            />
-
-            <input
-              type="password"
-              name="confirmPassword"
-              placeholder="Confirm Password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none"
-            />
-
-          </div>
-
-          {/* Button */}
-          <div className="pt-4">
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-[#1e1e1e] text-white py-3 rounded-xl font-bold hover:bg-black transition disabled:opacity-60"
-            >
-              {loading ? "Creating..." : "Create Staff"}
-            </button>
-          </div>
-
-        </form>
       </div>
     </div>
   );

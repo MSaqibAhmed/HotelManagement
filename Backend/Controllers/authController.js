@@ -124,3 +124,102 @@ export const createStaff = async (req, res) => {
     return res.status(500).json({ message: "Staff creation failed", error: err.message });
   }
 };
+
+
+export const getStaff = async (req, res) => {
+  try {
+    // guest ko chhor kar baaki sab staff
+    const staff = await User.find({ role: { $ne: "guest" } })
+      .select("-password")
+      .sort({ createdAt: -1 });
+
+    res.json({ count: staff.length, staff });
+  } catch (err) {
+    res.status(500).json({
+      message: "Failed to fetch staff",
+      error: err.message,
+    });
+  }
+};
+
+export const updateStaff = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, phone, department, role } = req.body;
+
+    const staff = await User.findById(id);
+
+    if (!staff) {
+      return res.status(404).json({ message: "Staff not found" });
+    }
+
+    staff.name = name || staff.name;
+    staff.phone = phone || staff.phone;
+    staff.department = department || staff.department;
+    staff.role = role || staff.role;
+
+    await staff.save();
+
+    res.json({
+      message: "Staff updated successfully",
+      staff,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: "Update failed",
+      error: error.message,
+    });
+  }
+};
+
+
+export const deleteStaff = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const staff = await User.findById(id);
+
+    if (!staff) {
+      return res.status(404).json({ message: "Staff not found" });
+    }
+
+    await staff.deleteOne();
+
+    res.json({ message: "Staff deleted successfully" });
+
+  } catch (error) {
+    res.status(500).json({
+      message: "Delete failed",
+      error: error.message,
+    });
+  }
+};
+
+//Active or Deactive staff by admin
+export const updateStaffStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isActive } = req.body;
+
+    const staff = await User.findById(id);
+
+    if (!staff) {
+      return res.status(404).json({ message: "Staff not found" });
+    }
+
+    staff.isActive = isActive;
+    await staff.save();
+
+    res.json({
+      message: "Staff status updated",
+      staff,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to update status",
+      error: error.message,
+    });
+  }
+};

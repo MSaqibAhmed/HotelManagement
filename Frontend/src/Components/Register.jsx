@@ -8,14 +8,42 @@ const Register = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({});
   const [loading, setLoading] = useState(false);
+
+  // NEW: empty-field errors
+  const [errors, setErrors] = useState({});
+
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value, }));
+
+    // NEW: remove error as user types
+    setErrors((prev) => ({ ...prev, [e.target.name]: "" }));
   };
 
   const nameRegex = /^[A-Za-z\s]{3,}$/;
   const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
   const phoneRegex = /^[0-9]{10,15}$/;
   const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
+
+  // NEW: required validation (empty inputs)
+  const validateRequired = () => {
+    const newErrors = {};
+
+    const name = (formData.name || "").trim();
+    const email = (formData.email || "").trim();
+    const phone = (formData.phone || "").trim();
+    const password = (formData.password || "").trim();
+    const address = (formData.address || "").trim();
+
+    if (!name) newErrors.name = "Full Name is required";
+    if (!email) newErrors.email = "Email is required";
+    if (!phone) newErrors.phone = "Phone is required";
+    if (!password) newErrors.password = "Password is required";
+    if (!address) newErrors.address = "Address is required";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const validateForm = () => {
 
 
@@ -58,6 +86,10 @@ const Register = () => {
   const handleRegister = async (e) => {
     e.preventDefault();
 
+    // ✅ NEW: required first (empty check)
+    if (!validateRequired()) return;
+
+    // ✅ Existing validation stays same
     if (!validateForm()) return;
 
     setLoading(true);
@@ -136,8 +168,15 @@ const Register = () => {
                 name="name"
                 placeholder="Enter Name"
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50"
+                className={`w-full px-4 py-3 border rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50 ${
+                  errors.name ? "border-red-500" : "border-gray-200"
+                }`}
               />
+              {errors.name && (
+                <p className="text-red-500 text-xs font-semibold mt-2">
+                  {errors.name}
+                </p>
+              )}
             </div>
 
             <div>
@@ -149,8 +188,15 @@ const Register = () => {
                 name="email"
                 placeholder="Enter Email"
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50"
+                className={`w-full px-4 py-3 border rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50 ${
+                  errors.email ? "border-red-500" : "border-gray-200"
+                }`}
               />
+              {errors.email && (
+                <p className="text-red-500 text-xs font-semibold mt-2">
+                  {errors.email}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -163,8 +209,15 @@ const Register = () => {
                   name="phone"
                   placeholder="+1 234 567"
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50"
+                  className={`w-full px-4 py-3 border rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50 ${
+                    errors.phone ? "border-red-500" : "border-gray-200"
+                  }`}
                 />
+                {errors.phone && (
+                  <p className="text-red-500 text-xs font-semibold mt-2">
+                    {errors.phone}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -176,8 +229,15 @@ const Register = () => {
                   name="password"
                   placeholder="Enter Password"
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50"
+                  className={`w-full px-4 py-3 border rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50 ${
+                    errors.password ? "border-red-500" : "border-gray-200"
+                  }`}
                 />
+                {errors.password && (
+                  <p className="text-red-500 text-xs font-semibold mt-2">
+                    {errors.password}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -190,8 +250,15 @@ const Register = () => {
                 placeholder="Enter your full address"
                 rows="2"
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50 resize-none"
+                className={`w-full px-4 py-3 border rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50 resize-none ${
+                  errors.address ? "border-red-500" : "border-gray-200"
+                }`}
               />
+              {errors.address && (
+                <p className="text-red-500 text-xs font-semibold mt-2">
+                  {errors.address}
+                </p>
+              )}
             </div>
 
             <div className="flex items-start gap-2 text-xs md:text-sm text-gray-600">

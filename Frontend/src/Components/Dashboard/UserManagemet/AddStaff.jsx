@@ -18,11 +18,41 @@ const AddStaff = () => {
     confirmPassword: "",
   });
 
+  // ✅ NEW: empty-field errors
+  const [errors, setErrors] = useState({});
+
   const handleChange = (e) => {
     setFormData((prev) => ({
       ...prev,
       [e.target.name]: e.target.value,
     }));
+
+    // ✅ NEW: remove error as user types
+    setErrors((prev) => ({ ...prev, [e.target.name]: "" }));
+  };
+
+  // ✅ NEW: required validation (empty inputs)
+  const validateRequired = () => {
+    const newErrors = {};
+
+    const name = (formData.name || "").trim();
+    const email = (formData.email || "").trim();
+    const phone = (formData.phone || "").trim();
+    const department = (formData.department || "").trim();
+    const address = (formData.address || "").trim();
+    const password = (formData.password || "").trim();
+    const confirmPassword = (formData.confirmPassword || "").trim();
+
+    if (!name) newErrors.name = "Full Name is required";
+    if (!email) newErrors.email = "Email is required";
+    if (!phone) newErrors.phone = "Phone is required";
+    if (!department) newErrors.department = "Department is required";
+    if (!address) newErrors.address = "Address is required";
+    if (!password) newErrors.password = "Password is required";
+    if (!confirmPassword) newErrors.confirmPassword = "Confirm Password is required";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const validateForm = () => {
@@ -72,6 +102,10 @@ const AddStaff = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // ✅ NEW: required first (empty check)
+    if (!validateRequired()) return;
+
+    // ✅ Existing validation stays same
     if (!validateForm()) return;
 
     setLoading(true);
@@ -124,8 +158,15 @@ const AddStaff = () => {
                   placeholder="Enter full name"
                   value={formData.name}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none"
+                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none ${
+                    errors.name ? "border-red-500" : "border-gray-200"
+                  }`}
                 />
+                {errors.name && (
+                  <p className="text-red-500 text-xs font-semibold mt-2">
+                    {errors.name}
+                  </p>
+                )}
               </div>
 
               {/* Email */}
@@ -139,8 +180,15 @@ const AddStaff = () => {
                   placeholder="Email (@gmail.com)"
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none"
+                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none ${
+                    errors.email ? "border-red-500" : "border-gray-200"
+                  }`}
                 />
+                {errors.email && (
+                  <p className="text-red-500 text-xs font-semibold mt-2">
+                    {errors.email}
+                  </p>
+                )}
               </div>
 
               {/* Phone */}
@@ -154,8 +202,15 @@ const AddStaff = () => {
                   placeholder="Enter phone number"
                   value={formData.phone}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none"
+                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none ${
+                    errors.phone ? "border-red-500" : "border-gray-200"
+                  }`}
                 />
+                {errors.phone && (
+                  <p className="text-red-500 text-xs font-semibold mt-2">
+                    {errors.phone}
+                  </p>
+                )}
               </div>
 
               {/* Department */}
@@ -169,8 +224,15 @@ const AddStaff = () => {
                   placeholder="e.g. Front Desk"
                   value={formData.department}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none"
+                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none ${
+                    errors.department ? "border-red-500" : "border-gray-200"
+                  }`}
                 />
+                {errors.department && (
+                  <p className="text-red-500 text-xs font-semibold mt-2">
+                    {errors.department}
+                  </p>
+                )}
               </div>
 
               {/* Role */}
@@ -203,8 +265,15 @@ const AddStaff = () => {
                   value={formData.address}
                   onChange={handleChange}
                   rows="3"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none resize-none"
+                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none resize-none ${
+                    errors.address ? "border-red-500" : "border-gray-200"
+                  }`}
                 />
+                {errors.address && (
+                  <p className="text-red-500 text-xs font-semibold mt-2">
+                    {errors.address}
+                  </p>
+                )}
               </div>
 
               {/* Password */}
@@ -218,8 +287,15 @@ const AddStaff = () => {
                   placeholder="Enter password"
                   value={formData.password}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none"
+                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none ${
+                    errors.password ? "border-red-500" : "border-gray-200"
+                  }`}
                 />
+                {errors.password && (
+                  <p className="text-red-500 text-xs font-semibold mt-2">
+                    {errors.password}
+                  </p>
+                )}
               </div>
 
               {/* Confirm Password */}
@@ -233,8 +309,15 @@ const AddStaff = () => {
                   placeholder="Confirm password"
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none"
+                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] focus:border-transparent outline-none ${
+                    errors.confirmPassword ? "border-red-500" : "border-gray-200"
+                  }`}
                 />
+                {errors.confirmPassword && (
+                  <p className="text-red-500 text-xs font-semibold mt-2">
+                    {errors.confirmPassword}
+                  </p>
+                )}
               </div>
             </div>
 

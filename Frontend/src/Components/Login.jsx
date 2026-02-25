@@ -10,12 +10,33 @@ const Login = () => {
   const [formData, setFormData] = useState({});
   const [loading, setLoading] = useState(false);
 
+  // ✅ NEW: field errors for empty inputs
+  const [errors, setErrors] = useState({});
+
   const handleChange = (e) => {
-    setFormData({...formData,[e.target.name]: e.target.value,});
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+
+    // ✅ NEW: remove error as user types
+    setErrors((prev) => ({ ...prev, [e.target.name]: "" }));
   };
+
+  // ✅ NEW: required validation (empty fields)
+  const validateRequired = () => {
+    const newErrors = {};
+
+    const email = (formData.email || "").trim();
+    const password = (formData.password || "").trim();
+
+    if (!email) newErrors.email = "Email is required";
+    if (!password) newErrors.password = "Password is required";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const validateLogin = () => {
     const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
-    const passwordRegex =/^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{6,}$/;
+    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{6,}$/;
 
     if (!emailRegex.test(formData.email || "")) {
       toast.error("Email must be @gmail.com");
@@ -23,9 +44,7 @@ const Login = () => {
     }
 
     if (!passwordRegex.test(formData.password || "")) {
-      toast.error(
-        "Password must have uppercase, number, special char & 6 length"
-      );
+      toast.error("Password must have uppercase, number, special char & 6 length");
       return false;
     }
 
@@ -35,6 +54,10 @@ const Login = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
 
+    // ✅ NEW: required first (empty check)
+    if (!validateRequired()) return;
+
+    // ✅ Existing validation (regex/toast) stays
     if (!validateLogin()) return;
 
     setLoading(true);
@@ -59,7 +82,6 @@ const Login = () => {
 
   return (
     <div className="flex min-h-screen bg-white font-sans">
-      
       {/* LEFT SIDE */}
       <div className="hidden lg:block lg:w-1/2 relative">
         <img
@@ -78,9 +100,7 @@ const Login = () => {
           <h1 className="text-6xl font-extrabold leading-tight">
             Find Your LuxuryStay
           </h1>
-          <p className="mt-4 text-white/90 text-lg italic">
-            ...just a few clicks
-          </p>
+          <p className="mt-4 text-white/90 text-lg italic">...just a few clicks</p>
         </div>
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent z-10"></div>
@@ -101,21 +121,48 @@ const Login = () => {
             Welcome Back to LuxuryStay
           </h2>
           <p className="text-gray-400 mb-10 text-sm">Sign in your account</p>
+
           <form noValidate onSubmit={handleLogin} className="space-y-6">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
                 Your Email
               </label>
-              <input type="email"  name="email" placeholder="info@gmail.com" onChange={handleChange} className="w-full px-4 py-3.5 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-50 outline-none transition-all bg-gray-50/50"/>
+              <input
+                type="email"
+                name="email"
+                placeholder="info@gmail.com"
+                onChange={handleChange}
+                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-4 focus:ring-blue-50 outline-none transition-all bg-gray-50/50 ${
+                  errors.email ? "border-red-500" : "border-gray-200"
+                }`}
+              />
+              {errors.email && (
+                <p className="text-red-500 text-xs font-semibold mt-2">
+                  {errors.email}
+                </p>
+              )}
             </div>
+
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
                 Password
               </label>
-              <input type="password" name="password"
+              <input
+                type="password"
+                name="password"
                 placeholder="Enter Password"
-                onChange={handleChange} className="w-full px-4 py-3.5 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-50 outline-none transition-all bg-gray-50/50"/>
+                onChange={handleChange}
+                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-4 focus:ring-blue-50 outline-none transition-all bg-gray-50/50 ${
+                  errors.password ? "border-red-500" : "border-gray-200"
+                }`}
+              />
+              {errors.password && (
+                <p className="text-red-500 text-xs font-semibold mt-2">
+                  {errors.password}
+                </p>
+              )}
             </div>
+
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center gap-2 text-gray-600 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4 accent-black rounded" />
@@ -125,12 +172,21 @@ const Login = () => {
                 Forgot Password?
               </Link>
             </div>
-            <button type="submit" disabled={loading} className="w-full bg-[#1e1e1e] text-white py-4 rounded-xl font-bold text-lg hover:bg-black transition-all shadow-xl shadow-gray-200 disabled:opacity-60">
-                {loading ? "Logging in..." : "Login"}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-[#1e1e1e] text-white py-4 rounded-xl font-bold text-lg hover:bg-black transition-all shadow-xl shadow-gray-200 disabled:opacity-60"
+            >
+              {loading ? "Logging in..." : "Login"}
             </button>
+
             <p className="text-center text-sm text-gray-500 mt-6 pt-4 border-t border-gray-50">
               Don't have an account?
-              <Link to="/register" className="text-blue-600 font-extrabold hover:underline ml-1">
+              <Link
+                to="/register"
+                className="text-blue-600 font-extrabold hover:underline ml-1"
+              >
                 Register
               </Link>
             </p>

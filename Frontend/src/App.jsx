@@ -8,6 +8,8 @@ import DashboardLayout from "./Components/Dashboard/DashboardLayout";
 import DashboardHome from "./Pages/AdminDasboard/DashboardHome";
 import AddStaff from "./Components/Dashboard/UserManagemet/AddStaff";
 import StaffList from "./Components/Dashboard/UserManagemet/StaffList";
+import RoomList from "./Components/Dashboard/RoomManangement/RoomList";
+import AddRoom from "./Components/Dashboard/RoomManangement/AddRoom";
 
 function App() {
   return (
@@ -23,7 +25,10 @@ function App() {
           <Route index element={<DashboardHome />} />
           <Route path="user-management/add-staff" element={<AddStaff />} />
           <Route path="user-management/staff" element={<StaffList />} />
+          <Route path="room-management/rooms" element={<RoomList />} />
+          <Route path="room-management/add-room" element={<AddRoom />} />
         </Route>
+
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </>

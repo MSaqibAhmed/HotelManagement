@@ -68,10 +68,9 @@ const DashboardSidebar = ({ open, setOpen }) => {
       subItems: [
         { title: "Room List", path: "/dashboard/room-management/rooms", icon: <FaClipboardList /> },
         { title: "Add Room", path: "/dashboard/room-management/add-room", icon: <FaClipboardList /> },
-        { title: "Edit Room", path: "", icon: <FaClipboardList /> },
-        { title: "Room Types", path: "", icon: <FaClipboardList /> },
-        { title: "Pricing Control", path: "", icon: <FaClipboardList /> },
-        { title: "Room Status Overview", path: "", icon: <FaClipboardList /> },
+        { title: "Room Types", path: "/dashboard/room-management/room-types", icon: <FaClipboardList /> },
+        { title: "Pricing Control", path: "/dashboard/room-management/pricing-control", icon: <FaClipboardList /> },
+        { title: "Room Status Overview", path: "/dashboard/room-management/status-overview", icon: <FaClipboardList /> },
       ],
     },
 
@@ -239,9 +238,8 @@ const DashboardSidebar = ({ open, setOpen }) => {
                   <span className="flex-1 text-left font-medium">{item.title}</span>
 
                   <FaChevronDown
-                    className={`text-[12px] transition-transform duration-200 ${
-                      expanded ? "rotate-180" : ""
-                    }`}
+                    className={`text-[12px] transition-transform duration-200 ${expanded ? "rotate-180" : ""
+                      }`}
                   />
                 </button>
 

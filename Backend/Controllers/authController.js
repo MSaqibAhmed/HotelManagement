@@ -2,7 +2,6 @@ import User from "../Models/userModel.js";
 import bcrypt from "bcryptjs";
 import generateToken from "../config/tokenGenerate.js";
 
-// ✅ GUEST ONLY REGISTER
 export const registerUser = async (req, res) => {
   try {
     const { name, email, password, phone, address } = req.body;
@@ -30,7 +29,6 @@ export const registerUser = async (req, res) => {
       isActive: true,
     });
 
-    // ✅ remove password from response
     const userSafe = await User.findById(newUser._id).select("-password");
 
     return res.status(201).json({
@@ -43,7 +41,6 @@ export const registerUser = async (req, res) => {
   }
 };
 
-// ✅ ALL ROLES LOGIN
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -75,7 +72,6 @@ export const loginUser = async (req, res) => {
   }
 };
 
-// ✅ ADMIN ONLY CREATE STAFF
 export const createStaff = async (req, res) => {
   try {
     const { name, email, password, phone, address, department, role } = req.body;
@@ -84,7 +80,6 @@ export const createStaff = async (req, res) => {
       return res.status(400).json({ message: "Please fill all the fields" });
     }
 
-    // Defense-in-depth (route already protects)
     if (req.user?.role !== "admin") {
       return res.status(403).json({ message: "Only admin can create staff" });
     }

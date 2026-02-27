@@ -12,6 +12,8 @@ const RoomList = () => {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState("");
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [roomToDelete, setRoomToDelete] = useState(null);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -32,15 +34,27 @@ const RoomList = () => {
     fetchRooms();
   }, []);
 
-  const handleDelete = async (id) => {
-    const confirmDelete = window.confirm("Are you sure you want to delete this room?");
-    if (!confirmDelete) return;
+  const openDeleteModal = (id) => {
+    setRoomToDelete(id);
+    setDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    if (actionLoadingId === roomToDelete) return;
+    setDeleteModalOpen(false);
+    setRoomToDelete(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!roomToDelete) return;
 
     try {
-      setActionLoadingId(id);
-      const { data } = await api.delete(`/rooms/deleteroom/${id}`);
+      setActionLoadingId(roomToDelete);
+      const { data } = await api.delete(`/room/deleteroom/${roomToDelete}`);
       toast.success(data.message || "Room deleted successfully");
-      setRooms((prev) => prev.filter((room) => room._id !== id));
+      setRooms((prev) => prev.filter((room) => room._id !== roomToDelete));
+      setDeleteModalOpen(false);
+      setRoomToDelete(null);
     } catch (error) {
       toast.error(error.response?.data?.message || "Delete failed");
     } finally {
@@ -53,7 +67,7 @@ const RoomList = () => {
       setActionLoadingId(id);
 
       const { data } = await api.patch(
-        `/rooms/updateactivestatus/${id}/active-status`,
+        `/room/updateactivestatus/${id}/active-status`,
         {
           isActive: !currentStatus,
         }
@@ -264,14 +278,12 @@ const RoomList = () => {
                         <button
                           onClick={() => handleToggleActive(room._id, room.isActive)}
                           disabled={actionLoadingId === room._id}
-                          className={`relative inline-flex h-7 w-14 items-center rounded-full transition ${
-                            room.isActive ? "bg-emerald-500" : "bg-gray-300"
-                          } ${actionLoadingId === room._id ? "opacity-60 cursor-not-allowed" : ""}`}
+                          className={`relative inline-flex h-7 w-14 items-center rounded-full transition ${room.isActive ? "bg-emerald-500" : "bg-gray-300"
+                            } ${actionLoadingId === room._id ? "opacity-60 cursor-not-allowed" : ""}`}
                         >
                           <span
-                            className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
-                              room.isActive ? "translate-x-8" : "translate-x-1"
-                            }`}
+                            className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${room.isActive ? "translate-x-8" : "translate-x-1"
+                              }`}
                           />
                         </button>
                       </td>
@@ -289,7 +301,7 @@ const RoomList = () => {
                           </button>
 
                           <button
-                            onClick={() => handleDelete(room._id)}
+                            onClick={() => openDeleteModal(room._id)}
                             disabled={actionLoadingId === room._id}
                             className="p-2 rounded-lg border border-red-100 text-red-500 hover:bg-red-50 transition disabled:opacity-50"
                             title="Delete"
@@ -336,6 +348,40 @@ const RoomList = () => {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-6">
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-4 mx-auto">
+                <LuTrash2 className="text-red-600 text-xl" />
+              </div>
+              <h3 className="text-xl font-bold text-center text-gray-900 mb-2">Delete Room</h3>
+              <p className="text-center text-gray-500 text-sm mb-6">
+                Are you sure you want to delete this room? This action cannot be undone and will remove all associated data.
+              </p>
+
+              <div className="flex items-center gap-3 w-full">
+                <button
+                  onClick={closeDeleteModal}
+                  disabled={actionLoadingId === roomToDelete}
+                  className="flex-1 py-2.5 px-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 font-semibold rounded-xl transition disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  disabled={actionLoadingId === roomToDelete}
+                  className="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {actionLoadingId === roomToDelete ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -21,11 +21,11 @@ import {
 
 const THEME = "#d6c3b3";
 
-const DashboardSidebar = ({ open, setOpen }) => {
+const DashboardSidebar = ({ open, setOpen, collapsed, setCollapsed }) => {
   const location = useLocation();
 
   const [openMenus, setOpenMenus] = useState({
-    "User Management": true,
+    "User Management": false,
     "Room Management": false,
     Reservations: false,
     "Billing & Invoicing": false,
@@ -78,11 +78,11 @@ const DashboardSidebar = ({ open, setOpen }) => {
       type: "dropdown",
       icon: <FaCalendarCheck />,
       subItems: [
-        { title: "View All Reservations", path: "", icon: <FaClipboardList /> },
-        { title: "Create Reservation", path: "", icon: <FaClipboardList /> },
-        { title: "Modify / Cancel Reservation", path: "", icon: <FaClipboardList /> },
-        { title: "Check-In", path: "", icon: <FaClipboardList /> },
-        { title: "Check-Out", path: "", icon: <FaClipboardList /> },
+        { title: "View All Reservations", path: "/dashboard/reservations", icon: <FaClipboardList /> },
+        { title: "Create Reservation", path: "/dashboard/reservations/create", icon: <FaClipboardList /> },
+        { title: "Modify / Cancel Reservation", path: "/dashboard/reservations/modify", icon: <FaClipboardList /> },
+        { title: "Check-In", path: "/dashboard/reservations/check-in", icon: <FaClipboardList /> },
+        { title: "Check-Out", path: "/dashboard/reservations/check-out", icon: <FaClipboardList /> },
       ],
     },
 
@@ -91,9 +91,9 @@ const DashboardSidebar = ({ open, setOpen }) => {
       type: "dropdown",
       icon: <FaFileInvoiceDollar />,
       subItems: [
-        { title: "Billing Overview", path: "", icon: <FaFileInvoiceDollar /> },
-        { title: "Invoices", path: "", icon: <FaFileInvoiceDollar /> },
-        { title: "Payments", path: "", icon: <FaFileInvoiceDollar /> },
+        { title: "Billing Overview", path: "/dashboard/billing", icon: <FaFileInvoiceDollar /> },
+        { title: "Invoices", path: "/dashboard/billing/invoices", icon: <FaFileInvoiceDollar /> },
+        { title: "Payments", path: "/dashboard/billing/payments", icon: <FaFileInvoiceDollar /> },
       ],
     },
 
@@ -124,9 +124,9 @@ const DashboardSidebar = ({ open, setOpen }) => {
       type: "dropdown",
       icon: <FaUserFriends />,
       subItems: [
-        { title: "My Reservations", path: "", icon: <FaUserFriends /> },
-        { title: "Request Services", path: "", icon: <FaUserFriends /> },
-        { title: "Feedback", path: "", icon: <FaUserFriends /> },
+        { title: "My Reservations", path: "/dashboard/guest/my-reservations", icon: <FaUserFriends /> },
+        { title: "Request Services", path: "/dashboard/guest/request-services", icon: <FaUserFriends /> },
+        { title: "Feedback", path: "/dashboard/guest/feedback", icon: <FaUserFriends /> },
       ],
     },
 
@@ -166,19 +166,34 @@ const DashboardSidebar = ({ open, setOpen }) => {
         />
       )}
 
+      {/* Sidebar Container */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-40 w-[300px] bg-white border-r border-gray-200 shadow-sm transition-transform duration-300
-        ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
+        className={`fixed inset-y-0 left-0 z-40 h-screen bg-white border-r border-gray-200 shadow-sm flex flex-col transition-all duration-300 ease-in-out
+        ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+        ${collapsed ? "w-[80px]" : "w-[300px]"}`}
       >
-        {/* Logo */}
-        <div className="h-20 border-b border-gray-200 flex items-center justify-center px-4 bg-white">
-          <div className="flex items-center gap-3">
+        {/* Toggle Button for Desktop */}
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="hidden lg:flex absolute -right-3 top-6 bg-white border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-full p-1.5 shadow-sm z-50 transition-transform"
+          title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+        >
+          <FaChevronDown
+            className={`text-xs transition-transform duration-300 ${collapsed ? "-rotate-90" : "rotate-90"
+              }`}
+          />
+        </button>
+
+        {/* Logo Section */}
+        <div className="h-20 border-b border-gray-200 flex items-center justify-center px-4 bg-white shrink-0 overflow-hidden">
+          <div className={`flex items-center gap-3 w-full transition-all duration-300 ${collapsed ? "justify-center" : "justify-start"}`}>
             <img
               src={logo}
               alt="LuxuryStay"
-              className="h-12 w-12 object-contain rounded-xl shadow-sm"
+              className={`object-contain rounded-xl shadow-sm transition-all duration-300 ${collapsed ? "h-10 w-10 min-w-10" : "h-12 w-12 min-w-12"}`}
             />
-            <div>
+            {/* Show only when not collapsed */}
+            <div className={`whitespace-nowrap transition-opacity duration-300 ${collapsed ? "opacity-0 w-0 hidden" : "opacity-100"}`}>
               <p className="text-lg font-bold text-gray-800 leading-tight">
                 LUXURYSTAY
               </p>
@@ -187,14 +202,15 @@ const DashboardSidebar = ({ open, setOpen }) => {
           </div>
         </div>
 
-        <div className="px-5 pt-3 pb-2">
-          <h3 className="text-xs font-bold tracking-[0.12em] uppercase text-gray-500">
+        {/* Optional Subheading */}
+        <div className={`px-5 pt-3 pb-2 flex transition-opacity duration-300 ${collapsed ? "opacity-0 hidden" : "opacity-100"}`}>
+          <h3 className="text-xs font-bold tracking-[0.12em] uppercase text-gray-500 whitespace-nowrap">
             Universal
           </h3>
         </div>
 
-        {/* Menu */}
-        <nav className="px-3 pb-4 overflow-y-auto max-h-[calc(100vh-120px)] space-y-1">
+        {/* Menu Items */}
+        <nav className="flex-1 px-3 pb-4 overflow-y-auto space-y-1 scrollbar-hide overflow-x-hidden">
           {menu.map((item) => {
             // ===== Single =====
             if (item.type === "single") {
@@ -212,8 +228,10 @@ const DashboardSidebar = ({ open, setOpen }) => {
                     color: active ? "#111827" : "#374151",
                   }}
                 >
-                  <span className="text-[16px]">{item.icon}</span>
-                  <span className="font-medium">{item.title}</span>
+                  <span className={`text-[16px] ${collapsed ? "mx-auto" : ""}`} title={collapsed ? item.title : ""}>
+                    {item.icon}
+                  </span>
+                  {!collapsed && <span className="font-medium whitespace-nowrap">{item.title}</span>}
                 </Link>
               );
             }
@@ -233,16 +251,24 @@ const DashboardSidebar = ({ open, setOpen }) => {
                     color: parentActive ? "#111827" : "#374151",
                   }}
                 >
-                  <span className="text-[16px]">{item.icon}</span>
-                  <span className="flex-1 text-left font-medium">{item.title}</span>
+                  <span className={`text-[16px] flex-shrink-0 ${collapsed ? "mx-auto" : ""}`} title={collapsed ? item.title : ""}>
+                    {item.icon}
+                  </span>
 
-                  <FaChevronDown
-                    className={`text-[12px] transition-transform duration-200 ${expanded ? "rotate-180" : ""
-                      }`}
-                  />
+                  {!collapsed && (
+                    <>
+                      <span className="flex-1 text-left font-medium whitespace-nowrap overflow-hidden text-ellipsis">
+                        {item.title}
+                      </span>
+                      <FaChevronDown
+                        className={`text-[12px] flex-shrink-0 transition-transform duration-200 ${expanded ? "rotate-180" : ""
+                          }`}
+                      />
+                    </>
+                  )}
                 </button>
 
-                {expanded && (
+                {expanded && !collapsed && (
                   <div
                     className="ml-8 mt-1 mb-2 pl-3 border-l-2 space-y-1"
                     style={{ borderColor: THEME }}

@@ -12,11 +12,11 @@ app.use(express.json());
 
 connectDb();
 
-app.use('/api/auth',authRoutes)
-app.use('/api/room',RoomRoute)
+app.use('/api/auth', authRoutes)
+app.use('/api/room', RoomRoute)
 const PORT = process.env.PORT;
 
-app.listen(PORT,()=>{
+app.listen(PORT, () => {
     console.log(`Server is running on port http://localhost:${PORT}`);
 })
 

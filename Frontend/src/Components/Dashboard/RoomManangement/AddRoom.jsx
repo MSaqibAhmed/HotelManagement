@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import api from "../../../api";
@@ -41,95 +41,95 @@ const AddRoom = () => {
   const [coverPreview, setCoverPreview] = useState("");
   const [galleryPreview, setGalleryPreview] = useState([]);
 
+  // ✅ cleanup previews
+  useEffect(() => {
+    return () => {
+      if (coverPreview) URL.revokeObjectURL(coverPreview);
+      if (galleryPreview?.length) galleryPreview.forEach((u) => URL.revokeObjectURL(u));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ✅ regex
   const roomNumberRegex = /^[A-Za-z0-9-]{1,10}$/;
   const textRegex = /^[A-Za-z0-9\s,&-]{2,50}$/;
   const descriptionRegex = /^.{10,500}$/;
 
+  const clearFieldError = (name) => {
+    setErrors((prev) => {
+      if (!prev[name]) return prev;
+      const copy = { ...prev };
+      delete copy[name];
+      return copy;
+    });
+  };
+
   const validate = () => {
     const newErrors = {};
 
-    if (!formData.roomNumber.trim()) {
-      newErrors.roomNumber = "Room number is required";
-    } else if (!roomNumberRegex.test(formData.roomNumber.trim())) {
+    const roomNumber = (formData.roomNumber || "").trim();
+    const roomType = (formData.roomType || "").trim();
+    const roomName = (formData.roomName || "").trim();
+    const typeDescription = (formData.typeDescription || "").trim();
+    const roomDescription = (formData.roomDescription || "").trim();
+    const reserveCondition = (formData.reserveCondition || "").trim();
+
+    if (!roomNumber) newErrors.roomNumber = "Room number is required";
+    else if (!roomNumberRegex.test(roomNumber))
       newErrors.roomNumber = "Use letters, numbers or hyphen only";
-    }
 
-    if (!formData.roomType.trim()) {
-      newErrors.roomType = "Room type is required";
-    } else if (!textRegex.test(formData.roomType.trim())) {
-      newErrors.roomType = "Invalid room type";
-    }
+    if (!roomType) newErrors.roomType = "Room type is required";
+    else if (!textRegex.test(roomType)) newErrors.roomType = "Invalid room type";
 
-    if (formData.roomName && !textRegex.test(formData.roomName.trim())) {
-      newErrors.roomName = "Invalid room name";
-    }
+    if (roomName && !textRegex.test(roomName)) newErrors.roomName = "Invalid room name";
 
-    if (
-      formData.typeDescription &&
-      !descriptionRegex.test(formData.typeDescription.trim())
-    ) {
-      newErrors.typeDescription =
-        "Type description must be at least 10 characters";
-    }
+    if (typeDescription && !descriptionRegex.test(typeDescription))
+      newErrors.typeDescription = "Type description must be at least 10 characters";
 
-    if (!formData.floor) {
+    if (formData.floor === "" || formData.floor === null || formData.floor === undefined)
       newErrors.floor = "Floor is required";
-    } else if (Number(formData.floor) < 0) {
-      newErrors.floor = "Invalid floor";
-    }
+    else if (Number(formData.floor) < 0) newErrors.floor = "Invalid floor";
 
-    if (!formData.capacity) {
-      newErrors.capacity = "Capacity is required";
-    } else if (Number(formData.capacity) < 1) {
-      newErrors.capacity = "Capacity must be at least 1";
-    }
+    if (!formData.capacity) newErrors.capacity = "Capacity is required";
+    else if (Number(formData.capacity) < 1) newErrors.capacity = "Capacity must be at least 1";
 
-    if (!formData.bedNumber) {
-      newErrors.bedNumber = "Bed number is required";
-    } else if (Number(formData.bedNumber) < 1) {
+    if (!formData.bedNumber) newErrors.bedNumber = "Bed number is required";
+    else if (Number(formData.bedNumber) < 1)
       newErrors.bedNumber = "Bed number must be at least 1";
-    }
 
     if (!formData.bedType) newErrors.bedType = "Bed type is required";
     if (!formData.roomSize) newErrors.roomSize = "Room size is required";
 
-    if (!formData.roomPrice) {
-      newErrors.roomPrice = "Base price is required";
-    } else if (Number(formData.roomPrice) <= 0) {
+    if (!formData.roomPrice) newErrors.roomPrice = "Base price is required";
+    else if (Number(formData.roomPrice) <= 0)
       newErrors.roomPrice = "Base price must be greater than 0";
-    }
 
-    if (formData.weekendPrice && Number(formData.weekendPrice) < 0) {
+    if (formData.weekendPrice && Number(formData.weekendPrice) < 0)
       newErrors.weekendPrice = "Weekend price cannot be negative";
-    }
 
-    if (formData.bedCharge && Number(formData.bedCharge) < 0) {
+    if (formData.bedCharge && Number(formData.bedCharge) < 0)
       newErrors.bedCharge = "Extra bed charge cannot be negative";
-    }
 
     if (
       formData.discountPercent &&
-      (Number(formData.discountPercent) < 0 ||
-        Number(formData.discountPercent) > 100)
+      (Number(formData.discountPercent) < 0 || Number(formData.discountPercent) > 100)
     ) {
       newErrors.discountPercent = "Discount must be between 0 and 100";
     }
 
-    if (!formData.roomDescription.trim()) {
-      newErrors.roomDescription = "Room description is required";
-    } else if (!descriptionRegex.test(formData.roomDescription.trim())) {
+    if (!roomDescription) newErrors.roomDescription = "Room description is required";
+    else if (!descriptionRegex.test(roomDescription))
       newErrors.roomDescription = "Minimum 10 characters required";
-    }
 
-    if (!formData.reserveCondition.trim()) {
-      newErrors.reserveCondition = "Reserve condition is required";
-    } else if (!descriptionRegex.test(formData.reserveCondition.trim())) {
+    if (!reserveCondition) newErrors.reserveCondition = "Reserve condition is required";
+    else if (!descriptionRegex.test(reserveCondition))
       newErrors.reserveCondition = "Minimum 10 characters required";
-    }
 
-    if (!coverImage) {
-      newErrors.coverImage = "Cover image is required";
-    }
+    if (!coverImage) newErrors.coverImage = "Cover image is required";
+    else if (!coverImage.type?.startsWith("image/"))
+      newErrors.coverImage = "Only image files are allowed";
+
+    if (galleryImages.length > 5) newErrors.galleryImages = "Max 5 gallery images allowed";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -137,34 +137,50 @@ const AddRoom = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-
     setFormData((prev) => ({ ...prev, [name]: value }));
-
-    setErrors((prev) => {
-      const copy = { ...prev };
-      delete copy[name];
-      return copy;
-    });
+    clearFieldError(name);
   };
 
   const handleCoverImage = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!file.type?.startsWith("image/")) {
+      toast.error("Only image files are allowed");
+      return;
+    }
+
+    if (coverPreview) URL.revokeObjectURL(coverPreview);
 
     setCoverImage(file);
     setCoverPreview(URL.createObjectURL(file));
-
-    setErrors((prev) => {
-      const copy = { ...prev };
-      delete copy.coverImage;
-      return copy;
-    });
+    clearFieldError("coverImage");
   };
 
   const handleGalleryImages = (e) => {
     const files = Array.from(e.target.files || []);
-    setGalleryImages(files);
-    setGalleryPreview(files.map((file) => URL.createObjectURL(file)));
+    const onlyImages = files.filter((f) => f.type?.startsWith("image/"));
+    const limited = onlyImages.slice(0, 5);
+
+    if (galleryPreview?.length) galleryPreview.forEach((u) => URL.revokeObjectURL(u));
+
+    setGalleryImages(limited);
+    setGalleryPreview(limited.map((file) => URL.createObjectURL(file)));
+    clearFieldError("galleryImages");
+  };
+
+  const handleClear = () => {
+    setFormData(initialFormData);
+    setErrors({});
+
+    setCoverImage(null);
+    setGalleryImages([]);
+
+    if (coverPreview) URL.revokeObjectURL(coverPreview);
+    if (galleryPreview?.length) galleryPreview.forEach((u) => URL.revokeObjectURL(u));
+
+    setCoverPreview("");
+    setGalleryPreview([]);
   };
 
   const handleSubmit = async (e) => {
@@ -180,67 +196,61 @@ const AddRoom = () => {
 
       const payload = new FormData();
 
-      const amenitiesArray = formData.amenities
+      // ✅ amenities JSON string (controller parses JSON)
+      const amenitiesArray = (formData.amenities || "")
         .split(",")
         .map((item) => item.trim())
         .filter(Boolean);
 
-      payload.append("roomNumber", formData.roomNumber.trim());
-      payload.append("roomName", formData.roomName.trim());
-      payload.append("roomType", formData.roomType.trim());
-      payload.append("typeDescription", formData.typeDescription.trim());
-
-      // array as JSON string
+      payload.append("roomNumber", (formData.roomNumber || "").trim());
+      payload.append("roomName", (formData.roomName || "").trim());
+      payload.append("roomType", (formData.roomType || "").trim());
+      payload.append("typeDescription", (formData.typeDescription || "").trim());
       payload.append("amenities", JSON.stringify(amenitiesArray));
 
-      payload.append("floor", Number(formData.floor));
-      payload.append("capacity", Number(formData.capacity));
-      payload.append("extraCapability", formData.extraCapability.trim());
-      payload.append("bedNumber", Number(formData.bedNumber));
+      payload.append("floor", String(Number(formData.floor)));
+      payload.append("capacity", String(Number(formData.capacity)));
+      payload.append("extraCapability", (formData.extraCapability || "").trim());
+      payload.append("bedNumber", String(Number(formData.bedNumber)));
       payload.append("bedType", formData.bedType);
       payload.append("roomSize", formData.roomSize);
 
-      payload.append("basePrice", Number(formData.roomPrice));
-      payload.append("weekendPrice", Number(formData.weekendPrice || 0));
-      payload.append("extraBedCharge", Number(formData.bedCharge || 0));
-      payload.append("seasonalRate", formData.seasonalRate);
-      payload.append("discountPercent", Number(formData.discountPercent || 0));
+      // ✅ exact keys backend expects
+      payload.append("basePrice", String(Number(formData.roomPrice)));
+      payload.append("weekendPrice", String(Number(formData.weekendPrice || 0)));
+      payload.append("extraBedCharge", String(Number(formData.bedCharge || 0)));
+      payload.append("seasonalRate", formData.seasonalRate || "Normal");
+      payload.append("discountPercent", String(Number(formData.discountPercent || 0)));
 
-      payload.append("status", formData.status);
-      payload.append("isActive", formData.isActive === "true");
+      payload.append("status", formData.status || "Available");
+      payload.append("isActive", formData.isActive); // "true"/"false"
 
-      payload.append("roomDescription", formData.roomDescription.trim());
-      payload.append("reserveCondition", formData.reserveCondition.trim());
+      payload.append("roomDescription", (formData.roomDescription || "").trim());
+      payload.append("reserveCondition", (formData.reserveCondition || "").trim());
 
-      if (coverImage) {
-        payload.append("coverImage", coverImage);
-      }
+      // ✅ file keys must match multer fields
+      payload.append("coverImage", coverImage);
+      galleryImages.slice(0, 5).forEach((file) => payload.append("galleryImages", file));
 
-      galleryImages.forEach((file) => {
-        payload.append("galleryImages", file);
-      });
+      // ✅ DO NOT set Content-Type manually; axios sets boundary correctly
+      const { data } = await api.post("/room/createroom", payload);
 
-      // Debug
-      for (let pair of payload.entries()) {
-        console.log(pair[0], pair[1]);
-      }
-
-      const { data } = await api.post("/room/createroom", payload, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-
-      toast.success(data.message || "Room created successfully");
+      toast.success(data?.message || "Room created successfully");
       navigate("/dashboard/room-management/rooms");
     } catch (error) {
-      console.log("ROOM CREATE ERROR:", error);
-      console.log("ROOM CREATE ERROR RESPONSE:", error.response);
-      console.log("ROOM CREATE ERROR DATA:", error.response?.data);
+      const status = error.response?.status;
+      const data = error.response?.data;
+
+      console.log("ROOM CREATE ERROR STATUS:", status);
+      console.log("ROOM CREATE ERROR DATA:", data);
+      console.log("ROOM CREATE ERROR FULL:", error);
 
       toast.error(
-        error.response?.data?.message ||
-          error.response?.data?.error ||
+        data?.message ||
+          data?.error ||
+          data?.msg ||
+          (typeof data === "string" ? data : "") ||
+          error.message ||
           "Room creation failed"
       );
     } finally {
@@ -259,15 +269,6 @@ const AddRoom = () => {
     errors[field] ? (
       <p className="text-xs text-red-500 mt-2 font-semibold">{errors[field]}</p>
     ) : null;
-
-  const handleClear = () => {
-    setFormData(initialFormData);
-    setErrors({});
-    setCoverImage(null);
-    setGalleryImages([]);
-    setCoverPreview("");
-    setGalleryPreview([]);
-  };
 
   return (
     <div className="min-h-[calc(100vh-80px)] px-4 sm:px-6 lg:px-8 py-6 sm:py-8 bg-gray-50">
@@ -319,15 +320,20 @@ const AddRoom = () => {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Gallery Images
+                  Gallery Images (max 5)
                 </label>
                 <input
                   type="file"
                   accept="image/*"
                   multiple
                   onChange={handleGalleryImages}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none"
+                  className={`w-full px-4 py-3 rounded-xl bg-gray-50 border outline-none transition ${
+                    errors.galleryImages
+                      ? "border-red-500 focus:ring-2 focus:ring-red-100"
+                      : "border-gray-200 focus:ring-2 focus:ring-[#1e266d]/10"
+                  }`}
                 />
+                {errorText("galleryImages")}
 
                 {galleryPreview.length > 0 && (
                   <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -430,6 +436,7 @@ const AddRoom = () => {
                   placeholder="e.g. Extra Bed Allowed"
                   className={inputClass("extraCapability")}
                 />
+                {errorText("extraCapability")}
               </div>
 
               <div>
@@ -607,7 +614,7 @@ const AddRoom = () => {
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Amenities
+                Amenities (comma separated)
               </label>
               <input
                 name="amenities"

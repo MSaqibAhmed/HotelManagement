@@ -1,70 +1,20 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import { LuPencilLine, LuSearch, LuX } from "react-icons/lu";
+import api from "../../../api";
 
 const THEME = "#d6c3b3";
 
 const PricingControl = () => {
   const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const [pricingRows, setPricingRows] = useState([
-    {
-      id: 1,
-      roomType: "Single Room",
-      basePrice: 2500,
-      weekendPrice: 2800,
-      extraBedCharge: 500,
-      seasonalRate: "Normal",
-      image:
-        "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=300&q=80",
-    },
-    {
-      id: 2,
-      roomType: "Standard Room",
-      basePrice: 3000,
-      weekendPrice: 3400,
-      extraBedCharge: 700,
-      seasonalRate: "Normal",
-      image:
-        "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=300&q=80",
-    },
-    {
-      id: 3,
-      roomType: "Family Room",
-      basePrice: 4500,
-      weekendPrice: 5000,
-      extraBedCharge: 1000,
-      seasonalRate: "Holiday",
-      image:
-        "https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=300&q=80",
-    },
-    {
-      id: 4,
-      roomType: "Deluxe Suite",
-      basePrice: 5500,
-      weekendPrice: 6200,
-      extraBedCharge: 1200,
-      seasonalRate: "Premium",
-      image:
-        "https://images.unsplash.com/photo-1578683010236-d716f9a3f461?auto=format&fit=crop&w=300&q=80",
-    },
-  ]);
+  // rooms from DB
+  const [rooms, setRooms] = useState([]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return pricingRows;
-    return pricingRows.filter((r) => r.roomType.toLowerCase().includes(q) || r.seasonalRate.toLowerCase().includes(q));
-  }, [query, pricingRows]);
-
-  const avgBase = Math.round(
-    pricingRows.reduce((sum, r) => sum + r.basePrice, 0) / Math.max(pricingRows.length, 1)
-  );
-  const maxRate = Math.max(...pricingRows.map((r) => r.weekendPrice));
-  const minRate = Math.min(...pricingRows.map((r) => r.basePrice));
-
-  // Modal state
+  // modal state
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState(null); // row object
+  const [editing, setEditing] = useState(null); // { roomType, roomIds, basePrice, weekendPrice, extraBedCharge, seasonalRate, image, count }
   const [form, setForm] = useState({
     basePrice: "",
     weekendPrice: "",
@@ -73,12 +23,91 @@ const PricingControl = () => {
   });
   const [errors, setErrors] = useState({});
 
+  // ✅ Fetch rooms from DB
+  const fetchRooms = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get("/room/getroom");
+      // backend returns {count, rooms} or maybe {rooms}
+      const list = data?.rooms || [];
+      setRooms(Array.isArray(list) ? list : []);
+    } catch (err) {
+      console.log("FETCH ROOMS ERROR:", err?.response || err);
+      toast.error(err?.response?.data?.message || "Failed to fetch rooms");
+      setRooms([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRooms();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ✅ Build pricing rows grouped by roomType
+  const pricingRows = useMemo(() => {
+    const map = new Map();
+
+    (rooms || []).forEach((r) => {
+      const roomType = (r?.roomType || "Unknown").trim();
+      if (!map.has(roomType)) {
+        map.set(roomType, {
+          key: roomType,
+          roomType,
+          roomIds: [],
+          count: 0,
+
+          basePrice: Number(r?.pricing?.basePrice || 0),
+          weekendPrice: Number(r?.pricing?.weekendPrice || 0),
+          extraBedCharge: Number(r?.pricing?.extraBedCharge || 0),
+          seasonalRate: r?.pricing?.seasonalRate || "Normal",
+
+          image:
+            r?.coverImage?.url ||
+            r?.galleryImages?.[0]?.url ||
+            "https://via.placeholder.com/120x120?text=Room",
+        });
+      }
+
+      const row = map.get(roomType);
+      row.roomIds.push(r?._id);
+      row.count += 1;
+
+      // (optional) if different prices exist within same type,
+      // we keep first one shown. You can change logic later.
+      map.set(roomType, row);
+    });
+
+    return Array.from(map.values()).sort((a, b) => a.roomType.localeCompare(b.roomType));
+  }, [rooms]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return pricingRows;
+    return pricingRows.filter(
+      (r) =>
+        r.roomType.toLowerCase().includes(q) ||
+        String(r.seasonalRate || "").toLowerCase().includes(q)
+    );
+  }, [query, pricingRows]);
+
+  const avgBase = Math.round(
+    pricingRows.reduce((sum, r) => sum + Number(r.basePrice || 0), 0) /
+      Math.max(pricingRows.length, 1)
+  );
+  const maxRate = Math.max(0, ...pricingRows.map((r) => Number(r.weekendPrice || 0)));
+  const minRate =
+    pricingRows.length > 0
+      ? Math.min(...pricingRows.map((r) => Number(r.basePrice || 0)))
+      : 0;
+
   const openModal = (row) => {
     setEditing(row);
     setForm({
-      basePrice: String(row.basePrice),
-      weekendPrice: String(row.weekendPrice),
-      extraBedCharge: String(row.extraBedCharge),
+      basePrice: String(row.basePrice ?? ""),
+      weekendPrice: String(row.weekendPrice ?? ""),
+      extraBedCharge: String(row.extraBedCharge ?? ""),
       seasonalRate: row.seasonalRate || "Normal",
     });
     setErrors({});
@@ -100,13 +129,19 @@ const PricingControl = () => {
     if (form.basePrice === "" || form.basePrice === null) e.basePrice = "Base price is required";
     else if (!Number.isFinite(base) || base <= 0) e.basePrice = "Base price must be greater than 0";
 
-    if (form.weekendPrice === "" || form.weekendPrice === null) e.weekendPrice = "Weekend price is required";
-    else if (!Number.isFinite(weekend) || weekend <= 0) e.weekendPrice = "Weekend price must be greater than 0";
+    if (form.weekendPrice === "" || form.weekendPrice === null)
+      e.weekendPrice = "Weekend price is required";
+    else if (!Number.isFinite(weekend) || weekend <= 0)
+      e.weekendPrice = "Weekend price must be greater than 0";
 
-    if (form.extraBedCharge === "" || form.extraBedCharge === null) e.extraBedCharge = "Extra bed charge is required";
-    else if (!Number.isFinite(extra) || extra < 0) e.extraBedCharge = "Extra bed charge cannot be negative";
+    if (form.extraBedCharge === "" || form.extraBedCharge === null)
+      e.extraBedCharge = "Extra bed charge is required";
+    else if (!Number.isFinite(extra) || extra < 0)
+      e.extraBedCharge = "Extra bed charge cannot be negative";
 
-    if (weekend < base) e.weekendPrice = "Weekend price should be >= base price";
+    if (Number.isFinite(base) && Number.isFinite(weekend) && weekend < base) {
+      e.weekendPrice = "Weekend price should be >= base price";
+    }
 
     if (!form.seasonalRate) e.seasonalRate = "Seasonal rate is required";
 
@@ -122,7 +157,9 @@ const PricingControl = () => {
     }`;
 
   const errorText = (field) =>
-    errors[field] ? <p className="text-xs text-red-500 mt-2 font-semibold">{errors[field]}</p> : null;
+    errors[field] ? (
+      <p className="text-xs text-red-500 mt-2 font-semibold">{errors[field]}</p>
+    ) : null;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -134,29 +171,48 @@ const PricingControl = () => {
     });
   };
 
-  const savePricing = (e) => {
+  // ✅ Update pricing for ALL rooms of that roomType
+  const savePricing = async (e) => {
     e.preventDefault();
     if (!validate()) {
       toast.error("Please fix the highlighted fields!");
       return;
     }
 
-    setPricingRows((prev) =>
-      prev.map((r) =>
-        r.id === editing.id
-          ? {
-              ...r,
-              basePrice: Number(form.basePrice),
-              weekendPrice: Number(form.weekendPrice),
-              extraBedCharge: Number(form.extraBedCharge),
-              seasonalRate: form.seasonalRate,
-            }
-          : r
-      )
-    );
+    if (!editing?.roomIds?.length) {
+      toast.error("No rooms found for this type");
+      return;
+    }
 
-    toast.success("Pricing updated (demo)");
-    closeModal();
+    setLoading(true);
+    try {
+      // Backend update route uses multer fields middleware,
+      // safest is sending FormData (multipart) even without files.
+      const makePayload = () => {
+        const fd = new FormData();
+        fd.append("basePrice", String(Number(form.basePrice)));
+        fd.append("weekendPrice", String(Number(form.weekendPrice)));
+        fd.append("extraBedCharge", String(Number(form.extraBedCharge)));
+        fd.append("seasonalRate", form.seasonalRate);
+        // optional: if you want discount too, add a field in UI
+        // fd.append("discountPercent", "0");
+        return fd;
+      };
+
+      // update each room in that type
+      await Promise.all(
+        editing.roomIds.map((roomId) => api.put(`/room/updateroom/${roomId}`, makePayload()))
+      );
+
+      toast.success(`Pricing updated for ${editing.roomType} (${editing.roomIds.length} rooms)`);
+      closeModal();
+      await fetchRooms();
+    } catch (err) {
+      console.log("UPDATE PRICING ERROR:", err?.response || err);
+      toast.error(err?.response?.data?.message || "Failed to update pricing");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -165,7 +221,7 @@ const PricingControl = () => {
         <div className="mb-6">
           <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900">Pricing Control</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Update room category pricing (static now, backend later).
+            Update room category pricing (connected to DB).
           </p>
         </div>
 
@@ -183,23 +239,41 @@ const PricingControl = () => {
             <p className="text-sm text-gray-500">Lowest Base Rate</p>
             <h2 className="text-2xl font-extrabold text-gray-900 mt-2">Rs {minRate}</h2>
           </div>
-          <div className="rounded-2xl border p-5 shadow-sm" style={{ backgroundColor: `${THEME}33`, borderColor: `${THEME}66` }}>
-            <p className="text-sm text-gray-700">Pricing Status</p>
-            <h2 className="text-2xl font-extrabold text-gray-900 mt-2">Stable</h2>
+          <div
+            className="rounded-2xl border p-5 shadow-sm"
+            style={{ backgroundColor: `${THEME}33`, borderColor: `${THEME}66` }}
+          >
+            <p className="text-sm text-gray-700">Pricing Rows</p>
+            <h2 className="text-2xl font-extrabold text-gray-900 mt-2">{pricingRows.length}</h2>
           </div>
         </div>
 
         {/* Toolbar */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 mb-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div className="text-sm font-semibold text-gray-500">Rows: {pricingRows.length}</div>
-          <div className="relative w-full md:w-96">
-            <LuSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search room type / seasonal..."
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#1e266d]/10"
-            />
+          <div className="text-sm font-semibold text-gray-500">
+            Rows: {pricingRows.length} {loading ? "• Loading..." : ""}
+          </div>
+
+          <div className="flex gap-3 w-full md:w-auto">
+            <button
+              onClick={fetchRooms}
+              className="px-4 py-2.5 rounded-xl border font-semibold hover:bg-gray-50 transition"
+              style={{ backgroundColor: `${THEME}33`, borderColor: `${THEME}66` }}
+              type="button"
+              disabled={loading}
+            >
+              Refresh
+            </button>
+
+            <div className="relative w-full md:w-96">
+              <LuSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search room type / seasonal..."
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+              />
+            </div>
           </div>
         </div>
 
@@ -215,27 +289,34 @@ const PricingControl = () => {
                   <th className="px-6 py-4">Weekend Price</th>
                   <th className="px-6 py-4">Extra Bed</th>
                   <th className="px-6 py-4">Seasonal Rate</th>
+                  <th className="px-6 py-4">Rooms</th>
                   <th className="px-6 py-4 text-center">Action</th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-gray-100 text-sm">
                 {filtered.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50 transition">
+                  <tr key={item.key} className="hover:bg-gray-50 transition">
                     <td className="px-6 py-4">
-                      <img src={item.image} alt={item.roomType} className="w-14 h-14 rounded-xl object-cover border border-gray-200" />
+                      <img
+                        src={item.image}
+                        alt={item.roomType}
+                        className="w-14 h-14 rounded-xl object-cover border border-gray-200"
+                      />
                     </td>
                     <td className="px-6 py-4 font-semibold text-gray-900">{item.roomType}</td>
                     <td className="px-6 py-4 font-mono">Rs {item.basePrice}</td>
                     <td className="px-6 py-4 font-mono">Rs {item.weekendPrice}</td>
                     <td className="px-6 py-4 font-mono">Rs {item.extraBedCharge}</td>
                     <td className="px-6 py-4">{item.seasonalRate}</td>
+                    <td className="px-6 py-4 font-semibold text-gray-700">{item.count}</td>
                     <td className="px-6 py-4">
                       <div className="flex justify-center">
                         <button
                           onClick={() => openModal(item)}
                           className="px-4 py-2 rounded-xl font-semibold border inline-flex items-center gap-2 hover:bg-gray-50 transition"
                           style={{ backgroundColor: `${THEME}33`, borderColor: `${THEME}66` }}
+                          type="button"
                         >
                           <LuPencilLine size={16} />
                           Update Pricing
@@ -247,7 +328,7 @@ const PricingControl = () => {
 
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-6 py-10 text-center text-gray-400 font-semibold">
+                    <td colSpan={8} className="px-6 py-10 text-center text-gray-400 font-semibold">
                       No results found.
                     </td>
                   </tr>
@@ -263,15 +344,16 @@ const PricingControl = () => {
             <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
               <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
                 <div>
-                  <h2 className="text-lg sm:text-xl font-extrabold text-gray-900">
-                    Update Pricing
-                  </h2>
-                  <p className="text-sm text-gray-500 mt-1">{editing.roomType}</p>
+                  <h2 className="text-lg sm:text-xl font-extrabold text-gray-900">Update Pricing</h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {editing.roomType} • {editing.count} rooms
+                  </p>
                 </div>
                 <button
                   onClick={closeModal}
                   className="p-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
                   title="Close"
+                  type="button"
                 >
                   <LuX size={18} />
                 </button>
@@ -371,10 +453,11 @@ const PricingControl = () => {
 
                     <button
                       type="submit"
-                      className="w-full sm:w-auto min-w-[170px] py-3 px-6 rounded-xl font-bold transition"
+                      disabled={loading}
+                      className="w-full sm:w-auto min-w-[170px] py-3 px-6 rounded-xl font-bold transition disabled:opacity-60"
                       style={{ backgroundColor: THEME, color: "#111827" }}
                     >
-                      Save Pricing
+                      {loading ? "Saving..." : "Save Pricing"}
                     </button>
                   </div>
                 </form>

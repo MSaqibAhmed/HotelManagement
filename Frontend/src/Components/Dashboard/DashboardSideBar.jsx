@@ -68,7 +68,6 @@ const DashboardSidebar = ({ open, setOpen }) => {
       subItems: [
         { title: "Room List", path: "/dashboard/room-management/rooms", icon: <FaClipboardList /> },
         { title: "Add Room", path: "/dashboard/room-management/add-room", icon: <FaClipboardList /> },
-        { title: "Room Types", path: "/dashboard/room-management/room-types", icon: <FaClipboardList /> },
         { title: "Pricing Control", path: "/dashboard/room-management/pricing-control", icon: <FaClipboardList /> },
         { title: "Room Status Overview", path: "/dashboard/room-management/status-overview", icon: <FaClipboardList /> },
       ],

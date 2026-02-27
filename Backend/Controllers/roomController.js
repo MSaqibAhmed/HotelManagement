@@ -1,5 +1,5 @@
 import Room from "../Models/roomModel.js";
-import {uploadBufferToCloudinary,deleteFromCloudinary,} from "../config/Uploadtocloudinary.js";
+import { deleteFromCloudinary } from "../config/uploadCloudinary.js";
 
 export const createRoom = async (req, res) => {
   try {
@@ -53,23 +53,20 @@ export const createRoom = async (req, res) => {
     }
 
     // files safe handling
-    let coverImageData = {
-      url: "",
-      public_id: "",
-    };
-
+    let coverImageData = { url: "", public_id: "" };
     let galleryImagesData = [];
 
+    // ✅ multer-storage-cloudinary gives: file.path, file.filename
     if (req.files?.coverImage?.[0]) {
       coverImageData = {
-        url: req.files.coverImage[0].path || req.files.coverImage[0].filename || "",
+        url: req.files.coverImage[0].path || "",
         public_id: req.files.coverImage[0].filename || "",
       };
     }
 
     if (req.files?.galleryImages?.length > 0) {
       galleryImagesData = req.files.galleryImages.map((file) => ({
-        url: file.path || file.filename || "",
+        url: file.path || "",
         public_id: file.filename || "",
       }));
     }
@@ -105,14 +102,14 @@ export const createRoom = async (req, res) => {
       galleryImages: galleryImagesData,
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Room created successfully",
       room: newRoom,
     });
   } catch (error) {
     console.log("CREATE ROOM ERROR:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message || "Room creation failed",
     });
@@ -177,48 +174,33 @@ export const updateRoom = async (req, res) => {
       }
     }
 
-    if (req.files?.coverImage?.length > 0) {
+    // ✅ COVER IMAGE (path + filename)
+    if (req.files?.coverImage?.[0]) {
       if (room.coverImage?.public_id) {
         await deleteFromCloudinary(room.coverImage.public_id);
       }
 
-      const coverResult = await uploadBufferToCloudinary(
-        req.files.coverImage[0].buffer,
-        "hotel-management/room-cover"
-      );
-
       room.coverImage = {
-        url: coverResult.secure_url,
-        public_id: coverResult.public_id,
+        url: req.files.coverImage[0].path || "",
+        public_id: req.files.coverImage[0].filename || "",
       };
     }
 
+    // ✅ GALLERY (path + filename)
     if (req.files?.galleryImages?.length > 0) {
-      const uploadedGalleryImages = await Promise.all(
-        req.files.galleryImages.map(async (file) => {
-          const result = await uploadBufferToCloudinary(
-            file.buffer,
-            "hotel-management/room-gallery"
-          );
-
-          return {
-            url: result.secure_url,
-            public_id: result.public_id,
-          };
-        })
-      );
+      const uploadedGalleryImages = req.files.galleryImages.map((file) => ({
+        url: file.path || "",
+        public_id: file.filename || "",
+      }));
 
       if (req.body.replaceGallery === "true") {
         if (room.galleryImages.length > 0) {
           await Promise.all(
             room.galleryImages.map(async (img) => {
-              if (img.public_id) {
-                await deleteFromCloudinary(img.public_id);
-              }
+              if (img.public_id) await deleteFromCloudinary(img.public_id);
             })
           );
         }
-
         room.galleryImages = uploadedGalleryImages;
       } else {
         room.galleryImages = [...room.galleryImages, ...uploadedGalleryImages];
@@ -228,7 +210,8 @@ export const updateRoom = async (req, res) => {
     room.roomNumber = req.body.roomNumber?.trim() || room.roomNumber;
     room.roomName = req.body.roomName?.trim() || room.roomName;
     room.roomType = req.body.roomType?.trim() || room.roomType;
-    room.typeDescription = req.body.typeDescription?.trim() || room.typeDescription;
+    room.typeDescription =
+      req.body.typeDescription?.trim() || room.typeDescription;
 
     if (req.body.amenities) {
       room.amenities = req.body.amenities
@@ -239,8 +222,11 @@ export const updateRoom = async (req, res) => {
 
     room.floor = req.body.floor ? Number(req.body.floor) : room.floor;
     room.capacity = req.body.capacity ? Number(req.body.capacity) : room.capacity;
-    room.extraCapability = req.body.extraCapability?.trim() || room.extraCapability;
-    room.bedNumber = req.body.bedNumber ? Number(req.body.bedNumber) : room.bedNumber;
+    room.extraCapability =
+      req.body.extraCapability?.trim() || room.extraCapability;
+    room.bedNumber = req.body.bedNumber
+      ? Number(req.body.bedNumber)
+      : room.bedNumber;
     room.bedType = req.body.bedType || room.bedType;
     room.roomSize = req.body.roomSize || room.roomSize;
 
@@ -256,7 +242,8 @@ export const updateRoom = async (req, res) => {
       ? Number(req.body.extraBedCharge)
       : room.pricing.extraBedCharge;
 
-    room.pricing.seasonalRate = req.body.seasonalRate || room.pricing.seasonalRate;
+    room.pricing.seasonalRate =
+      req.body.seasonalRate || room.pricing.seasonalRate;
 
     room.pricing.discountPercent = req.body.discountPercent
       ? Number(req.body.discountPercent)
@@ -268,8 +255,10 @@ export const updateRoom = async (req, res) => {
       room.isActive = req.body.isActive === "true" || req.body.isActive === true;
     }
 
-    room.roomDescription = req.body.roomDescription?.trim() || room.roomDescription;
-    room.reserveCondition = req.body.reserveCondition?.trim() || room.reserveCondition;
+    room.roomDescription =
+      req.body.roomDescription?.trim() || room.roomDescription;
+    room.reserveCondition =
+      req.body.reserveCondition?.trim() || room.reserveCondition;
 
     await room.save();
 
@@ -302,9 +291,7 @@ export const deleteRoom = async (req, res) => {
     if (room.galleryImages.length > 0) {
       await Promise.all(
         room.galleryImages.map(async (img) => {
-          if (img.public_id) {
-            await deleteFromCloudinary(img.public_id);
-          }
+          if (img.public_id) await deleteFromCloudinary(img.public_id);
         })
       );
     }

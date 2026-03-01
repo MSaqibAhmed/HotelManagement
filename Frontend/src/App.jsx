@@ -28,6 +28,18 @@ import MyReservations from "./Components/Dashboard/Guest/MyReservations";
 import RequestServices from "./Components/Dashboard/Guest/RequestServices";
 import Feedback from "./Components/Dashboard/Guest/Feedback";
 
+import Cleaning from "./Components/Dashboard/HouseKeeping/Cleaning";
+import Assign from "./Components/Dashboard/HouseKeeping/Assign";
+import CleaningReport from "./Components/Dashboard/HouseKeeping/CleaningReport";
+
+import MaintenanceRequests from "./Components/Dashboard/Maintenance/MaintenanceRequests";
+import UpdateStatus from "./Components/Dashboard/Maintenance/UpdateStatus";
+import History from "./Components/Dashboard/Maintenance/History";
+
+import ReportsAnalytics from "./Components/Dashboard/System/ReportsAnalytics";
+import Notifications from "./Components/Dashboard/System/Notifications";
+import Settings from "./Components/Dashboard/System/Settings";
+
 function App() {
   return (
     <>
@@ -61,6 +73,21 @@ function App() {
           <Route path="guest/my-reservations" element={<MyReservations />} />
           <Route path="guest/request-services" element={<RequestServices />} />
           <Route path="guest/feedback" element={<Feedback />} />
+
+          {/* Housekeeping Routes */}
+          <Route path="housekeeping/room-status" element={<Cleaning />} />
+          <Route path="housekeeping/assigned-tasks" element={<Assign />} />
+          <Route path="housekeeping/report-issue" element={<CleaningReport />} />
+
+          {/* Maintenance Routes */}
+          <Route path="maintenance/requests" element={<MaintenanceRequests />} />
+          <Route path="maintenance/update-status" element={<UpdateStatus />} />
+          <Route path="maintenance/history" element={<History />} />
+
+          {/* System Routes */}
+          <Route path="system/reports-analytics" element={<ReportsAnalytics />} />
+          <Route path="system/notifications" element={<Notifications />} />
+          <Route path="system/settings" element={<Settings />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/login" />} />

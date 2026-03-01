@@ -102,9 +102,9 @@ const DashboardSidebar = ({ open, setOpen, collapsed, setCollapsed }) => {
       type: "dropdown",
       icon: <FaBroom />,
       subItems: [
-        { title: "Room Status", path: "", icon: <FaBroom /> },
-        { title: "Assigned Tasks", path: "", icon: <FaBroom /> },
-        { title: "Report Issue", path: "", icon: <FaBroom /> },
+        { title: "Room Status", path: "/dashboard/housekeeping/room-status", icon: <FaBroom /> },
+        { title: "Assigned Tasks", path: "/dashboard/housekeeping/assigned-tasks", icon: <FaBroom /> },
+        { title: "Report Issue", path: "/dashboard/housekeeping/report-issue", icon: <FaBroom /> },
       ],
     },
 
@@ -113,9 +113,9 @@ const DashboardSidebar = ({ open, setOpen, collapsed, setCollapsed }) => {
       type: "dropdown",
       icon: <FaTools />,
       subItems: [
-        { title: "Maintenance Requests", path: "", icon: <FaTools /> },
-        { title: "Update Status", path: "", icon: <FaTools /> },
-        { title: "History", path: "", icon: <FaTools /> },
+        { title: "Maintenance Requests", path: "/dashboard/maintenance/requests", icon: <FaTools /> },
+        { title: "Update Status", path: "/dashboard/maintenance/update-status", icon: <FaTools /> },
+        { title: "History", path: "/dashboard/maintenance/history", icon: <FaTools /> },
       ],
     },
 
@@ -135,9 +135,9 @@ const DashboardSidebar = ({ open, setOpen, collapsed, setCollapsed }) => {
       type: "dropdown",
       icon: <FaCog />,
       subItems: [
-        { title: "Reports & Analytics", path: "", icon: <FaChartBar /> },
-        { title: "Notifications", path: "", icon: <FaBell /> },
-        { title: "Setting", path: "", icon: <FaCog /> },
+        { title: "Reports & Analytics", path: "/dashboard/system/reports-analytics", icon: <FaChartBar /> },
+        { title: "Notifications", path: "/dashboard/system/notifications", icon: <FaBell /> },
+        { title: "Setting", path: "/dashboard/system/settings", icon: <FaCog /> },
       ],
     },
   ];

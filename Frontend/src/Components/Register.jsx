@@ -168,9 +168,8 @@ const Register = () => {
                 name="name"
                 placeholder="Enter Name"
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50 ${
-                  errors.name ? "border-red-500" : "border-gray-200"
-                }`}
+                className={`w-full px-4 py-3 border rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50 ${errors.name ? "border-red-500" : "border-gray-200"
+                  }`}
               />
               {errors.name && (
                 <p className="text-red-500 text-xs font-semibold mt-2">
@@ -188,9 +187,8 @@ const Register = () => {
                 name="email"
                 placeholder="Enter Email"
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50 ${
-                  errors.email ? "border-red-500" : "border-gray-200"
-                }`}
+                className={`w-full px-4 py-3 border rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50 ${errors.email ? "border-red-500" : "border-gray-200"
+                  }`}
               />
               {errors.email && (
                 <p className="text-red-500 text-xs font-semibold mt-2">
@@ -209,9 +207,8 @@ const Register = () => {
                   name="phone"
                   placeholder="+1 234 567"
                   onChange={handleChange}
-                  className={`w-full px-4 py-3 border rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50 ${
-                    errors.phone ? "border-red-500" : "border-gray-200"
-                  }`}
+                  className={`w-full px-4 py-3 border rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50 ${errors.phone ? "border-red-500" : "border-gray-200"
+                    }`}
                 />
                 {errors.phone && (
                   <p className="text-red-500 text-xs font-semibold mt-2">
@@ -229,9 +226,8 @@ const Register = () => {
                   name="password"
                   placeholder="Enter Password"
                   onChange={handleChange}
-                  className={`w-full px-4 py-3 border rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50 ${
-                    errors.password ? "border-red-500" : "border-gray-200"
-                  }`}
+                  className={`w-full px-4 py-3 border rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50 ${errors.password ? "border-red-500" : "border-gray-200"
+                    }`}
                 />
                 {errors.password && (
                   <p className="text-red-500 text-xs font-semibold mt-2">
@@ -250,9 +246,8 @@ const Register = () => {
                 placeholder="Enter your full address"
                 rows="2"
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50 resize-none ${
-                  errors.address ? "border-red-500" : "border-gray-200"
-                }`}
+                className={`w-full px-4 py-3 border rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50 resize-none ${errors.address ? "border-red-500" : "border-gray-200"
+                  }`}
               />
               {errors.address && (
                 <p className="text-red-500 text-xs font-semibold mt-2">

@@ -35,11 +35,6 @@ const DashboardNavbar = ({ onToggleSidebar }) => {
     navigate("/login");
   };
 
-  const goProfile = () => {
-    setShowDropdown(false);
-    navigate("/dashboard/profile");
-  };
-
   const initial = (user?.name?.charAt(0) || "U").toUpperCase();
 
   return (
@@ -114,16 +109,6 @@ const DashboardNavbar = ({ onToggleSidebar }) => {
               <p className="text-sm font-semibold text-gray-800">{user?.name || "User"}</p>
               <p className="text-xs text-gray-500 break-all">{user?.email || ""}</p>
             </div>
-
-            <button
-              onClick={goProfile}
-              className="w-full text-left px-4 py-2.5 text-sm font-semibold text-gray-700"
-              style={{ backgroundColor: "transparent" }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = `${THEME}22`)}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-            >
-              Profile
-            </button>
 
             <button
               onClick={handleLogout}

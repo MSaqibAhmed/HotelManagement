@@ -17,16 +17,17 @@ const ReservationsList = () => {
 
   const itemsPerPage = 5;
 
-  const fetchReservations = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setReservations([
-        { _id: "res1", bookingId: "BKG-1001", guestName: "John Doe", guestEmail: "john@example.com", roomType: "Luxury King", roomId: "101", checkIn: "2026-03-01", checkOut: "2026-03-05", status: "Confirmed", amount: 15000, nights: 4, guests: 2 },
-        { _id: "res2", bookingId: "BKG-1002", guestName: "Jane Smith", guestEmail: "jane@example.com", roomType: "Standard Queen", roomId: "205", checkIn: "2026-03-10", checkOut: "2026-03-12", status: "Pending", amount: 8000, nights: 2, guests: 1 },
-        { _id: "res3", bookingId: "BKG-1003", guestName: "Alice Johnson", guestEmail: "alice@example.com", roomType: "Standard Twin", roomId: "302", checkIn: "2026-02-28", checkOut: "2026-03-02", status: "Checked-in", amount: 12000, nights: 2, guests: 2 }
-      ]);
+  const fetchReservations = async () => {
+    try {
+      setLoading(true);
+      const { data } = await api.get("/reservation/all");
+      setReservations(data.reservations || []);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to fetch reservations");
+      setReservations([]);
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   useEffect(() => {
@@ -59,31 +60,48 @@ const ReservationsList = () => {
     return filteredReservations.slice(start, start + itemsPerPage);
   }, [filteredReservations, currentPage]);
 
-  const handleCancel = (reservation) => {
+  const handleCancel = async (reservation) => {
     const ok = window.confirm(`Cancel booking ${reservation.bookingId}?`);
     if (!ok) return;
-    toast.success("Reservation cancelled successfully (Dummy)");
-    setReservations((prev) => prev.map((r) => r._id === reservation._id ? { ...r, status: "Cancelled" } : r));
+
+    try {
+      await api.patch(`/reservation/cancel/${reservation._id}`);
+      setReservations((prev) => prev.map((r) => r._id === reservation._id ? { ...r, status: "Cancelled" } : r));
+      toast.success("Reservation cancelled successfully");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to cancel reservation");
+    }
   };
 
-  const handleCheckIn = (reservation) => {
+  const handleCheckIn = async (reservation) => {
     if (reservation.status === "Cancelled") {
       toast.error("Cannot check-in a cancelled reservation");
       return;
     }
-    toast.success("Checked-in successfully (Dummy)");
-    setReservations((prev) => prev.map((r) => r._id === reservation._id ? { ...r, status: "Checked-in" } : r));
+    try {
+      await api.patch(`/reservation/check-in/${reservation._id}`);
+      setReservations((prev) => prev.map((r) => r._id === reservation._id ? { ...r, status: "Checked-in" } : r));
+      toast.success("Checked-in successfully");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Check-in failed");
+    }
   };
 
-  const handleCheckOut = (reservation) => {
+  const handleCheckOut = async (reservation) => {
     if (reservation.status !== "Checked-in") {
       toast.error("Guest must be checked in first");
       return;
     }
     const ok = window.confirm(`Check out ${reservation.guestName}?`);
     if (!ok) return;
-    toast.success("Checked-out successfully (Dummy)");
-    setReservations((prev) => prev.filter((r) => r._id !== reservation._id));
+
+    try {
+      await api.patch(`/reservation/check-out/${reservation._id}`);
+      setReservations((prev) => prev.filter((r) => r._id !== reservation._id));
+      toast.success("Checked-out successfully");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Check-out failed");
+    }
   };
 
   const handleView = (reservation) => {

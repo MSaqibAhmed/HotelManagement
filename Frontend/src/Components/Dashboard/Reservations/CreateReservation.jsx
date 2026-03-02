@@ -43,7 +43,7 @@ const CreateReservation = () => {
 
   const validateForm = () => {
     const nameRegex = /^[A-Za-z\s]{3,}$/;
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     const phoneRegex = /^[0-9]{10,15}$/;
 
     if (!nameRegex.test(formData.guestName.trim())) {
@@ -51,7 +51,7 @@ const CreateReservation = () => {
       return false;
     }
     if (!emailRegex.test(formData.guestEmail.trim())) {
-      toast.error("Email must be @gmail.com");
+      toast.error("Please enter a valid email address");
       return false;
     }
     if (!phoneRegex.test(formData.guestPhone.trim())) {

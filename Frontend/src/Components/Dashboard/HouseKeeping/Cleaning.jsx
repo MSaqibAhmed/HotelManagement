@@ -1,90 +1,269 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from "react";
+import { FaSearch, FaEdit, FaTrash } from "react-icons/fa";
+import { toast } from "react-toastify";
+import api from "../../../api";
 
-const RoomCleaningList = () => {
-  const data = [
-    { id: '01', name: 'Jone', room: 'B-1202', date: '22/01/2024', status: 'Under Progress' },
-    { id: '02', name: 'Meeta', room: 'C-1202', date: '21/01/2024', status: 'Under Progress' },
-    { id: '03', name: 'Joshef', room: 'D-1202', date: '22/01/2024', status: 'Under Progress' },
-    { id: '04', name: 'Roj', room: 'E-1202', date: '19/01/2024', status: 'Under Progress' },
-    { id: '05', name: 'Jone', room: 'H-1101', date: '18/01/2024', status: 'Under Progress' },
-    { id: '06', name: 'Risha', room: 'G-1108', date: '18/01/2024', status: 'Under Progress' },
-    { id: '07', name: 'Roma', room: 'K-1308', date: '05/03/2024', status: 'Under Progress' },
-    { id: '08', name: 'Lina', room: 'L-1408', date: '08/03/2024', status: 'Under Progress' },
-    { id: '09', name: 'Micky', room: 'L-1405', date: '08/03/2024', status: 'Under Progress' },
-  ];
+const EditTaskModal = ({ task, onClose, onSave }) => {
+  const [formData, setFormData] = useState({
+    empName: task?.empName || "",
+    roomNumber: task?.roomNumber || "",
+    date: task?.date || "",
+    status: task?.status || "Under Progress",
+  });
+
+  useEffect(() => {
+    if (task) {
+      setFormData({
+        empName: task.empName || "",
+        roomNumber: task.roomNumber || "",
+        date: task.date || "",
+        status: task.status || "Under Progress",
+      });
+    }
+  }, [task]);
+
+  const handleChange = (e) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await api.put(`/housekeeping/cleaning-tasks/${task._id}`, formData);
+      onSave({ ...task, ...formData });
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to update task");
+    }
+  };
 
   return (
-    <div className="p-4 md:p-8 bg-white">
-      <h1 className="text-2xl font-bold mb-6 text-gray-800">Room Cleaning List</h1>
-
-      <div className="border rounded shadow-sm overflow-hidden bg-white">
-        {/* Controls */}
-        <div className="flex flex-col md:flex-row justify-between items-center p-4 gap-4">
-          <div className="flex items-center gap-2 text-sm text-gray-700">
-            <span>Show</span>
-            <select className="border rounded px-1 py-1 outline-none bg-transparent">
-              <option>10</option>
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+      <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl p-6">
+        <h2 className="text-2xl font-bold text-[#1e266d] mb-6">Edit Cleaning Task</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Employee Name</label>
+            <input type="text" name="empName" value={formData.empName} onChange={handleChange} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none" required />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Room Number</label>
+            <input type="text" name="roomNumber" value={formData.roomNumber} onChange={handleChange} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none" required />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Date</label>
+            <input type="date" name="date" value={formData.date} onChange={handleChange} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none" required />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Status</label>
+            <select name="status" value={formData.status} onChange={handleChange} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none">
+              <option value="Under Progress">Under Progress</option>
+              <option value="Completed">Completed</option>
+              <option value="Pending">Pending</option>
             </select>
-            <span>entries</span>
           </div>
-
-          <div className="flex items-center gap-2 text-sm text-gray-700 w-full md:w-auto">
-            <span>Search:</span>
-            <input type="text" className="border border-gray-300 rounded px-2 py-1 w-full md:w-48 outline-none focus:border-gray-400" />
+          <div className="flex justify-end gap-3 pt-4">
+            <button type="button" onClick={onClose} className="px-6 py-2.5 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50">Cancel</button>
+            <button type="submit" className="px-6 py-2.5 bg-[#1e1e1e] text-white rounded-xl font-semibold hover:bg-black">Update</button>
           </div>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm border-collapse">
-            <thead>
-              <tr className="border-y border-gray-200 text-gray-800 font-bold uppercase text-[12px]">
-                <th className="px-4 py-3 cursor-pointer">ID <span className="text-[10px]">↑↓</span></th>
-                <th className="px-4 py-3 cursor-pointer">Emp Name <span className="text-[10px]">↑↓</span></th>
-                <th className="px-4 py-3 cursor-pointer">Room Number <span className="text-[10px]">↑↓</span></th>
-                <th className="px-4 py-3 cursor-pointer">Date <span className="text-[10px]">↑↓</span></th>
-                <th className="px-4 py-3 cursor-pointer">Status <span className="text-[10px]">↑↓</span></th>
-                <th className="px-4 py-3 cursor-pointer">Actions <span className="text-[10px]">↑↓</span></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {data.map((row) => (
-                <tr key={row.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-4">{row.id}</td>
-                  <td className="px-4 py-4">{row.name}</td>
-                  <td className="px-4 py-4">{row.room}</td>
-                  <td className="px-4 py-4">{row.date}</td>
-                  <td className="px-4 py-4">{row.status}</td>
-                  <td className="px-4 py-4">
-                    <div className="flex gap-4">
-                      {/* Edit SVG */}
-                      <button className="text-gray-600 hover:text-blue-600">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                      </button>
-                      {/* Trash SVG */}
-                      <button className="text-red-400 hover:text-red-600">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Footer */}
-        <div className="flex flex-col md:flex-row justify-between items-center p-4 gap-4 border-t text-sm text-gray-600">
-          <div>Showing 1 to 9 of 9 entries</div>
-          <div className="flex border rounded overflow-hidden">
-            <button className="px-3 py-1.5 bg-gray-50 text-gray-400">Previous</button>
-            <button className="px-4 py-1.5 bg-[#4B3F72] text-white">1</button>
-            <button className="px-3 py-1.5 hover:bg-gray-50 border-l">Next</button>
-          </div>
-        </div>
+        </form>
       </div>
     </div>
   );
 };
 
-export default RoomCleaningList;
+const Cleaning = () => {
+  const [cleaningTasks, setCleaningTasks] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+
+  const itemsPerPage = 10;
+
+  const fetchCleaningTasks = async () => {
+    try {
+      setLoading(true);
+      const { data } = await api.get("/housekeeping/cleaning-tasks");
+      setCleaningTasks(data.tasks || []);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to fetch cleaning tasks");
+      setCleaningTasks([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCleaningTasks();
+  }, []);
+
+  const filteredTasks = useMemo(() => {
+    const q = searchTerm.toLowerCase().trim();
+    return cleaningTasks.filter(
+      (task) =>
+        task.empName?.toLowerCase().includes(q) ||
+        task.roomNumber?.toLowerCase().includes(q) ||
+        task.status?.toLowerCase().includes(q)
+    );
+  }, [cleaningTasks, searchTerm]);
+
+  const totalPages = Math.ceil(filteredTasks.length / itemsPerPage);
+  const paginatedTasks = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredTasks.slice(start, start + itemsPerPage);
+  }, [filteredTasks, currentPage]);
+
+  const handleEdit = (task) => {
+    setSelectedTask(task);
+    setShowModal(true);
+  };
+
+  const handleSave = async (updatedTask) => {
+    setCleaningTasks((prev) => prev.map((t) => (t._id === updatedTask._id ? updatedTask : t)));
+    toast.success("Task updated successfully");
+    setShowModal(false);
+    setSelectedTask(null);
+  };
+
+  const handleDelete = async (task) => {
+    const ok = window.confirm(`Delete cleaning task for room ${task.roomNumber}?`);
+    if (!ok) return;
+
+    try {
+      await api.delete(`/housekeeping/cleaning-tasks/${task._id}`);
+      setCleaningTasks((prev) => prev.filter((t) => t._id !== task._id));
+      toast.success("Cleaning task deleted successfully");
+      setCurrentPage((prevPage) => {
+        const newLength = filteredTasks.length - 1;
+        const newTotalPages = Math.max(1, Math.ceil(newLength / itemsPerPage));
+        return Math.min(prevPage, newTotalPages);
+      });
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Delete failed");
+    }
+  };
+
+  const getStatusClasses = (status) => {
+    switch (status?.toLowerCase()) {
+      case "completed": return "bg-emerald-50 text-emerald-700 border border-emerald-100";
+      case "under progress": return "bg-amber-50 text-amber-700 border border-amber-100";
+      case "pending": return "bg-gray-50 text-gray-700 border border-gray-100";
+      default: return "bg-gray-50 text-gray-700 border border-gray-100";
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-[#1e266d]">Room Cleaning List</h1>
+        <p className="text-sm text-gray-500 mt-1">Track and manage room cleaning tasks</p>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
+        <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
+          <div className="flex-1 relative">
+            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input type="text" placeholder="Search by employee name, room number, or status..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none bg-gray-50" />
+          </div>
+          <span className="text-sm text-gray-500 sm:whitespace-nowrap">{filteredTasks.length} task(s)</span>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1e266d]" />
+          </div>
+        ) : (
+          <>
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">#</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Employee Name</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Room Number</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {paginatedTasks.length === 0 ? (
+                    <tr><td colSpan="6" className="text-center py-16"><div className="flex flex-col items-center"><p className="text-gray-500 font-medium">No cleaning tasks found</p><p className="text-sm text-gray-400 mt-1">Try changing search or add a new task</p></div></td></tr>
+                  ) : (
+                    paginatedTasks.map((task, index) => (
+                      <tr key={task._id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 text-sm text-gray-500">{(currentPage - 1) * itemsPerPage + index + 1}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-[#1e266d] to-[#1e1e1e] rounded-full flex items-center justify-center text-white font-semibold">{(task.empName?.charAt(0) || "E").toUpperCase()}</div>
+                            <span className="font-medium text-gray-800">{task.empName}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-gray-700">{task.roomNumber}</td>
+                        <td className="px-6 py-4 text-gray-700">{task.date}</td>
+                        <td className="px-6 py-4"><span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${getStatusClasses(task.status)}`}>{task.status}</span></td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-end gap-2">
+                            <button onClick={() => handleEdit(task)} className="p-2 text-gray-500 hover:text-[#1e266d] hover:bg-[#1e266d]/10 rounded-lg" title="Edit"><FaEdit className="w-4 h-4" /></button>
+                            <button onClick={() => handleDelete(task)} className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Delete"><FaTrash className="w-4 h-4" /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="md:hidden">
+              {paginatedTasks.length === 0 ? (
+                <div className="text-center py-16 px-4"><p className="text-gray-500 font-medium">No cleaning tasks found</p><p className="text-sm text-gray-400 mt-1">Try changing search or add a new task</p></div>
+              ) : (
+                <div className="divide-y divide-gray-200">
+                  {paginatedTasks.map((task) => (
+                    <div key={task._id} className="p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 shrink-0 bg-gradient-to-br from-[#1e266d] to-[#1e1e1e] rounded-full flex items-center justify-center text-white font-semibold">{(task.empName?.charAt(0) || "E").toUpperCase()}</div>
+                          <div className="min-w-0"><p className="font-medium text-gray-800 truncate">{task.empName}</p><p className="text-sm text-gray-500 truncate">Room: {task.roomNumber}</p></div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button onClick={() => handleEdit(task)} className="p-2 text-gray-500 hover:text-[#1e266d] hover:bg-[#1e266d]/10 rounded-lg" title="Edit"><FaEdit className="w-4 h-4" /></button>
+                          <button onClick={() => handleDelete(task)} className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Delete"><FaTrash className="w-4 h-4" /></button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div><p className="text-gray-400 text-xs mb-1">Date</p><p className="text-gray-700">{task.date}</p></div>
+                        <div><p className="text-gray-400 text-xs mb-1">Status</p><span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getStatusClasses(task.status)}`}>{task.status}</span></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="px-4 sm:px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                <p className="text-sm text-gray-500">Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredTasks.length)} of {filteredTasks.length}</p>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50">Previous</button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button key={page} onClick={() => setCurrentPage(page)} className={`px-3 py-1.5 text-sm font-medium rounded-lg ${currentPage === page ? "bg-[#1e1e1e] text-white" : "border border-gray-200 hover:bg-gray-50"}`}>{page}</button>
+                  ))}
+                  <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50">Next</button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {showModal && selectedTask && <EditTaskModal task={selectedTask} onClose={() => { setShowModal(false); setSelectedTask(null); }} onSave={handleSave} />}
+    </div>
+  );
+};
+
+export default Cleaning;

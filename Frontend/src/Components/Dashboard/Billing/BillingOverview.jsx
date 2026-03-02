@@ -15,22 +15,29 @@ const BillingOverview = () => {
   });
   const [recentInvoices, setRecentInvoices] = useState([]);
 
-  const fetchOverview = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setOverview({
-        totalRevenue: 1545000,
-        pendingInvoices: 12,
-        paidAmount: 1250000,
-        overdueAmount: 45000,
+  const fetchOverview = async () => {
+    try {
+      setLoading(true);
+      const { data } = await api.get("/billing/overview");
+      setOverview(data.overview || {
+        totalRevenue: 0,
+        pendingInvoices: 0,
+        paidAmount: 0,
+        overdueAmount: 0,
       });
-      setRecentInvoices([
-        { _id: "inv1", invoiceId: "INV-2026-001", guestName: "John Doe", amount: 15000, dueDate: "2026-03-05", status: "Paid" },
-        { _id: "inv2", invoiceId: "INV-2026-002", guestName: "Jane Smith", amount: 8000, dueDate: "2026-03-12", status: "Pending" },
-        { _id: "inv3", invoiceId: "INV-2026-003", guestName: "Alice Johnson", amount: 12000, dueDate: "2026-02-28", status: "Overdue" }
-      ]);
+      setRecentInvoices(data.recentInvoices || []);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to fetch billing overview");
+      setOverview({
+        totalRevenue: 0,
+        pendingInvoices: 0,
+        paidAmount: 0,
+        overdueAmount: 0,
+      });
+      setRecentInvoices([]);
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   useEffect(() => {

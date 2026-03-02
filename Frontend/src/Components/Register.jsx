@@ -20,7 +20,7 @@ const Register = () => {
   };
 
   const nameRegex = /^[A-Za-z\s]{3,}$/;
-  const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
   const phoneRegex = /^[0-9]{10,15}$/;
   const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
 
@@ -45,8 +45,6 @@ const Register = () => {
   };
 
   const validateForm = () => {
-
-
     const name = (formData.name || "").trim();
     const email = (formData.email || "").trim();
     const phone = (formData.phone || "").trim();
@@ -59,7 +57,7 @@ const Register = () => {
     }
 
     if (!emailRegex.test(email)) {
-      toast.error("Email must be @gmail.com");
+      toast.error("Please enter a valid email address");
       return false;
     }
 

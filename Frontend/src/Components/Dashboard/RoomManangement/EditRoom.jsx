@@ -87,7 +87,7 @@ const EditRoom = () => {
   }, [newCoverPreview, newGalleryPreview]);
 
   const fetchRoom = async () => {
-    const { data } = await api.get(`/room/getsingleroom/${id}`);
+    const { data } = await api.get(`/room/getroom/${id}`);
     const room = data?.room || data;
 
     setCurrentCover(room?.coverImage?.url || "");
@@ -360,56 +360,293 @@ const EditRoom = () => {
               </div>
             </div>
 
-            {/* Minimal fields (you can add all like AddRoom) */}
+            {/* Form Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              <input
-                name="roomNumber"
-                value={formData.roomNumber}
-                onChange={handleChange}
-                placeholder="Room Number"
-                className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200"
-              />
-              <input
-                name="roomType"
-                value={formData.roomType}
-                onChange={handleChange}
-                placeholder="Room Type"
-                className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200"
-              />
-              <input
-                name="roomPrice"
-                value={formData.roomPrice}
-                onChange={handleChange}
-                placeholder="Base Price"
-                className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200"
-              />
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Room Number *
+                </label>
+                <input
+                  name="roomNumber"
+                  value={formData.roomNumber}
+                  onChange={handleChange}
+                  placeholder="e.g. 101"
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Room Name
+                </label>
+                <input
+                  name="roomName"
+                  value={formData.roomName}
+                  onChange={handleChange}
+                  placeholder="e.g. Premium Deluxe"
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Room Type *
+                </label>
+                <input
+                  name="roomType"
+                  value={formData.roomType}
+                  onChange={handleChange}
+                  placeholder="e.g. Deluxe Suite"
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Floor *
+                </label>
+                <input
+                  type="number"
+                  name="floor"
+                  value={formData.floor}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Capacity *
+                </label>
+                <input
+                  type="number"
+                  name="capacity"
+                  value={formData.capacity}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Extra Capability
+                </label>
+                <input
+                  name="extraCapability"
+                  value={formData.extraCapability}
+                  onChange={handleChange}
+                  placeholder="e.g. Extra Bed Allowed"
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Bed Number *
+                </label>
+                <input
+                  type="number"
+                  name="bedNumber"
+                  value={formData.bedNumber}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Bed Type *
+                </label>
+                <select
+                  name="bedType"
+                  value={formData.bedType}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                >
+                  <option value="">Select Bed Type</option>
+                  <option value="Single">Single</option>
+                  <option value="Double">Double</option>
+                  <option value="Standard Queen">Standard Queen</option>
+                  <option value="Luxury King">Luxury King</option>
+                  <option value="Standard Twin">Standard Twin</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Room Size *
+                </label>
+                <select
+                  name="roomSize"
+                  value={formData.roomSize}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                >
+                  <option value="">Select Room Size</option>
+                  <option value="Small">Small</option>
+                  <option value="Queen">Queen</option>
+                  <option value="King">King</option>
+                  <option value="Twin">Twin</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Base Price *
+                </label>
+                <input
+                  type="number"
+                  name="roomPrice"
+                  value={formData.roomPrice}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Weekend Price
+                </label>
+                <input
+                  type="number"
+                  name="weekendPrice"
+                  value={formData.weekendPrice}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Extra Bed Charge
+                </label>
+                <input
+                  type="number"
+                  name="bedCharge"
+                  value={formData.bedCharge}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Seasonal Rate
+                </label>
+                <select
+                  name="seasonalRate"
+                  value={formData.seasonalRate}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                >
+                  <option value="Normal">Normal</option>
+                  <option value="Holiday">Holiday</option>
+                  <option value="Premium">Premium</option>
+                  <option value="Off-Season">Off-Season</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Discount %
+                </label>
+                <input
+                  type="number"
+                  name="discountPercent"
+                  value={formData.discountPercent}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Status
+                </label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                >
+                  <option value="Available">Available</option>
+                  <option value="Occupied">Occupied</option>
+                  <option value="Cleaning">Cleaning</option>
+                  <option value="Maintenance">Maintenance</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  State
+                </label>
+                <select
+                  name="isActive"
+                  value={formData.isActive}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                >
+                  <option value="true">Active</option>
+                  <option value="false">Inactive</option>
+                </select>
+              </div>
             </div>
 
-            <input
-              name="amenities"
-              value={formData.amenities}
-              onChange={handleChange}
-              placeholder="Amenities (comma separated)"
-              className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Type Description
+                </label>
+                <textarea
+                  rows={3}
+                  name="typeDescription"
+                  value={formData.typeDescription}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10 resize-none"
+                />
+              </div>
 
-            <textarea
-              rows={3}
-              name="roomDescription"
-              value={formData.roomDescription}
-              onChange={handleChange}
-              placeholder="Room Description"
-              className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200"
-            />
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Amenities (comma separated)
+                </label>
+                <input
+                  name="amenities"
+                  value={formData.amenities}
+                  onChange={handleChange}
+                  placeholder="WiFi, AC, TV, Mini Bar"
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                />
+              </div>
+            </div>
 
-            <textarea
-              rows={3}
-              name="reserveCondition"
-              value={formData.reserveCondition}
-              onChange={handleChange}
-              placeholder="Reserve Condition"
-              className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Room Description *
+                </label>
+                <textarea
+                  rows={3}
+                  name="roomDescription"
+                  value={formData.roomDescription}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Reserve Condition *
+                </label>
+                <textarea
+                  rows={3}
+                  name="reserveCondition"
+                  value={formData.reserveCondition}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10 resize-none"
+                />
+              </div>
+            </div>
 
             <div className="pt-2 flex flex-col sm:flex-row gap-3 sm:justify-end">
               <button

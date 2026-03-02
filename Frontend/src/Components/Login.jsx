@@ -35,11 +35,11 @@ const Login = () => {
   };
 
   const validateLogin = () => {
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{6,}$/;
 
     if (!emailRegex.test(formData.email || "")) {
-      toast.error("Email must be @gmail.com");
+      toast.error("Please enter a valid email address");
       return false;
     }
 

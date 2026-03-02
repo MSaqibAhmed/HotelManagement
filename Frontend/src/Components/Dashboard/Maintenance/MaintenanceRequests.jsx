@@ -3,7 +3,7 @@ import { FaPlus, FaSearch, FaEdit, FaTrash, FaTools } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 
-let dummyRequests = [
+const INITIAL_REQUESTS = [
   { _id: "1", title: "Leaky Faucet", description: "Faucet in room 101 is leaking", location: "Room 101", priority: "Low", category: "Plumbing", status: "pending", createdAt: new Date(Date.now() - 86400000).toISOString() },
   { _id: "2", title: "AC Not Working", description: "AC is blowing warm air", location: "Room 205", priority: "High", category: "HVAC", status: "in-progress", createdAt: new Date(Date.now() - 2 * 86400000).toISOString() },
   { _id: "3", title: "Broken Light", description: "Ceiling light is flickering", location: "Lobby", priority: "Medium", category: "Electrical", status: "completed", createdAt: new Date(Date.now() - 3 * 86400000).toISOString() },
@@ -12,7 +12,7 @@ let dummyRequests = [
 ];
 
 const MaintenanceRequests = () => {
-  const [requests, setRequests] = useState([]);
+  const [requests, setRequests] = useState(INITIAL_REQUESTS);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -33,7 +33,7 @@ const MaintenanceRequests = () => {
   const fetchRequests = () => {
     setLoading(true);
     setTimeout(() => {
-      setRequests([...dummyRequests]);
+      setRequests([...INITIAL_REQUESTS]);
       setLoading(false);
     }, 500);
   };
@@ -95,15 +95,14 @@ const MaintenanceRequests = () => {
     setTimeout(() => {
       try {
         if (selectedRequest) {
-          dummyRequests = dummyRequests.map(r => r._id === selectedRequest._id ? { ...r, ...formData } : r);
+          setRequests((prev) => prev.map((r) => (r._id === selectedRequest._id ? { ...r, ...formData } : r)));
           toast.success("Request updated successfully");
         } else {
           const newRequest = { ...formData, _id: Date.now().toString(), status: "pending", createdAt: new Date().toISOString() };
-          dummyRequests = [newRequest, ...dummyRequests];
+          setRequests((prev) => [newRequest, ...prev]);
           toast.success("Request created successfully");
         }
         handleCloseModal();
-        fetchRequests();
       } catch (err) {
         toast.error("Operation failed");
       }
@@ -116,11 +115,10 @@ const MaintenanceRequests = () => {
 
     setTimeout(() => {
       try {
-        dummyRequests = dummyRequests.filter(r => r._id !== request._id);
         setRequests((prev) => prev.filter((r) => r._id !== request._id));
         toast.success("Request deleted successfully");
         setCurrentPage((prevPage) => {
-          const newLength = filteredRequests.length - 1;
+          const newLength = requests.filter((r) => r._id !== request._id).length;
           const newTotalPages = Math.max(1, Math.ceil(newLength / itemsPerPage));
           return Math.min(prevPage, newTotalPages);
         });

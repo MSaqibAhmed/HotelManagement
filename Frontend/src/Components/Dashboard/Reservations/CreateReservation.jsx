@@ -1,92 +1,264 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import api from "../../../api";
 
 const THEME = "#d6c3b3";
 
+// ✅ backend enum
+const ROOM_TYPES = ["Standard", "Deluxe", "Executive", "Family"];
+const PAYMENT_METHODS = ["Cash", "Online"];
+
+// ✅ local user (role)
+const getUserFromStorage = () => {
+  try {
+    return JSON.parse(localStorage.getItem("user") || "{}");
+  } catch {
+    return {};
+  }
+};
+
 const CreateReservation = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const user = useMemo(() => getUserFromStorage(), []);
+  const role = (user?.role || "").toLowerCase();
+  const isGuest = role === "guest";
 
+  const [loading, setLoading] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  // ✅ staff can create for guest using guestId (optional). For now keep simple.
   const [formData, setFormData] = useState({
+    // guest fields are only for UI; backend uses guestId for staff OR req.user for guest
     guestName: "",
     guestEmail: "",
     guestPhone: "",
+
     roomType: "",
-    roomId: "",
-    checkIn: "",
-    checkOut: "",
-    guests: 1,
-    specialRequest: "",
+    checkInDate: "",
+    checkOutDate: "",
+
+    adults: 1,
+    children: 0,
+
+    paymentMethod: "Cash",
+    specialRequests: "",
   });
 
   const [errors, setErrors] = useState({});
 
+  // ✅ preview result from backend
+  const [preview, setPreview] = useState({
+    roomNumber: "",
+    roomName: "",
+    basePrice: 0,
+    nights: 0,
+    amount: 0,
+  });
+
+  // ---------- regex ----------
+  const nameRegex = /^[A-Za-z\s]{3,}$/;
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  const phoneRegex = /^[0-9]{10,15}$/;
+
+  const clearFieldError = (name) => {
+    setErrors((prev) => {
+      if (!prev[name]) return prev;
+      const copy = { ...prev };
+      delete copy[name];
+      return copy;
+    });
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    // clamp numbers
+    if (name === "adults" || name === "children") {
+      let num = value === "" ? "" : Number(value);
+      if (num === "") {
+        setFormData((p) => ({ ...p, [name]: "" }));
+        clearFieldError(name);
+        return;
+      }
+      if (Number.isNaN(num)) num = 0;
+      if (name === "adults") {
+        if (num < 1) num = 1;
+        if (num > 10) num = 10;
+      }
+      if (name === "children") {
+        if (num < 0) num = 0;
+        if (num > 10) num = 10;
+      }
+      setFormData((p) => ({ ...p, [name]: num }));
+      clearFieldError(name);
+      return;
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
-    setErrors((prev) => ({ ...prev, [name]: "" }));
+    clearFieldError(name);
   };
 
   const validateRequired = () => {
     const newErrors = {};
-    if (!formData.guestName.trim()) newErrors.guestName = "Guest Name is required";
-    if (!formData.guestEmail.trim()) newErrors.guestEmail = "Email is required";
-    if (!formData.guestPhone.trim()) newErrors.guestPhone = "Phone is required";
+
+    // Guest can only book for self, so guest info is readonly display; still validate if you want:
+    if (!isGuest) {
+      if (!formData.guestName.trim()) newErrors.guestName = "Guest Name is required";
+      if (!formData.guestEmail.trim()) newErrors.guestEmail = "Email is required";
+      if (!formData.guestPhone.trim()) newErrors.guestPhone = "Phone is required";
+    }
+
     if (!formData.roomType) newErrors.roomType = "Room Type is required";
-    if (!formData.checkIn) newErrors.checkIn = "Check-in date is required";
-    if (!formData.checkOut) newErrors.checkOut = "Check-out date is required";
+    if (!formData.checkInDate) newErrors.checkInDate = "Check-in date is required";
+    if (!formData.checkOutDate) newErrors.checkOutDate = "Check-out date is required";
+    if (!formData.paymentMethod) newErrors.paymentMethod = "Payment method is required";
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const validateForm = () => {
-    const nameRegex = /^[A-Za-z\s]{3,}$/;
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    const phoneRegex = /^[0-9]{10,15}$/;
-
-    if (!nameRegex.test(formData.guestName.trim())) {
-      toast.error("Name must be at least 3 letters");
-      return false;
-    }
-    if (!emailRegex.test(formData.guestEmail.trim())) {
-      toast.error("Please enter a valid email address");
-      return false;
-    }
-    if (!phoneRegex.test(formData.guestPhone.trim())) {
-      toast.error("Phone must be 10-15 digits");
-      return false;
+    if (!isGuest) {
+      if (!nameRegex.test(formData.guestName.trim())) {
+        toast.error("Name must be at least 3 letters");
+        return false;
+      }
+      if (!emailRegex.test(formData.guestEmail.trim())) {
+        toast.error("Please enter a valid email address");
+        return false;
+      }
+      if (!phoneRegex.test(formData.guestPhone.trim())) {
+        toast.error("Phone must be 10-15 digits");
+        return false;
+      }
     }
 
-    const start = new Date(formData.checkIn);
-    const end = new Date(formData.checkOut);
-    if (end <= start) {
-      toast.error("Check-out must be after check-in");
+    if (formData.roomType && !ROOM_TYPES.includes(formData.roomType)) {
+      toast.error("Invalid room type");
       return false;
+    }
+
+    if (formData.paymentMethod && !PAYMENT_METHODS.includes(formData.paymentMethod)) {
+      toast.error("Invalid payment method");
+      return false;
+    }
+
+    if (formData.checkInDate && formData.checkOutDate) {
+      const start = new Date(formData.checkInDate);
+      const end = new Date(formData.checkOutDate);
+      if (end <= start) {
+        toast.error("Check-out must be after check-in");
+        return false;
+      }
     }
 
     return true;
   };
 
-  const handleSubmit = (e) => {
+  // ✅ call backend preview when roomType/dates change
+  useEffect(() => {
+    const canPreview = formData.roomType && formData.checkInDate && formData.checkOutDate;
+    if (!canPreview) {
+      setPreview({ roomNumber: "", roomName: "", basePrice: 0, nights: 0, amount: 0 });
+      return;
+    }
+
+    const run = async () => {
+      try {
+        setPreviewLoading(true);
+        const { data } = await api.get(
+          `/reservation/preview?roomType=${encodeURIComponent(formData.roomType)}&checkInDate=${encodeURIComponent(
+            formData.checkInDate
+          )}&checkOutDate=${encodeURIComponent(formData.checkOutDate)}`
+        );
+
+        setPreview({
+          roomNumber: data?.selectedRoom?.roomNumber || "",
+          roomName: data?.selectedRoom?.roomName || "",
+          basePrice: Number(data?.selectedRoom?.basePrice || 0),
+          nights: Number(data?.nights || 0),
+          amount: Number(data?.amount || 0),
+        });
+      } catch (err) {
+        setPreview({ roomNumber: "", roomName: "", basePrice: 0, nights: 0, amount: 0 });
+        const msg = err?.response?.data?.message || "No room available for selected dates";
+        toast.error(msg);
+      } finally {
+        setPreviewLoading(false);
+      }
+    };
+
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.roomType, formData.checkInDate, formData.checkOutDate]);
+
+  const handleClear = () => {
+    setFormData({
+      guestName: "",
+      guestEmail: "",
+      guestPhone: "",
+      roomType: "",
+      checkInDate: "",
+      checkOutDate: "",
+      adults: 1,
+      children: 0,
+      paymentMethod: "Cash",
+      specialRequests: "",
+    });
+    setErrors({});
+    setPreview({ roomNumber: "", roomName: "", basePrice: 0, nights: 0, amount: 0 });
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!validateRequired()) return;
     if (!validateForm()) return;
 
-    setLoading(true);
+    // must have preview amount (means available room exists)
+    if (!preview.amount || preview.amount <= 0 || !preview.roomNumber) {
+      toast.error("No available room found. Please change dates or room type.");
+      return;
+    }
 
-    setTimeout(() => {
-      toast.success("Reservation created successfully (Dummy)");
+    try {
+      setLoading(true);
+
+      // ✅ backend expects:
+      // roomType, checkInDate, checkOutDate, paymentMethod, adults, children, specialRequests
+      const payload = {
+        roomType: formData.roomType,
+        checkInDate: formData.checkInDate,
+        checkOutDate: formData.checkOutDate,
+        paymentMethod: formData.paymentMethod,
+        adults: Number(formData.adults || 1),
+        children: Number(formData.children || 0),
+        specialRequests: formData.specialRequests,
+      };
+
+      // NOTE: staff booking for specific guest requires guestId (backend)
+      // You can add guestId later when you build guest selector.
+      const { data } = await api.post("/reservation/create", payload);
+
+      toast.success(data?.message || "Reservation created successfully");
       navigate("/dashboard/reservations");
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Reservation creation failed");
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   const inputClass = (field) =>
-    `w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none transition ${errors[field] ? "border-red-500" : "border-gray-200"
+    `w-full px-4 py-3 border rounded-xl outline-none transition ${
+      errors[field] ? "border-red-500 focus:ring-2 focus:ring-red-100" : "border-gray-200 focus:ring-2 focus:ring-[#1e266d]/15"
     }`;
+
+  const errorText = (field) =>
+    errors[field] ? <p className="text-red-500 text-xs font-semibold mt-2">{errors[field]}</p> : null;
+
+  const today = new Date().toISOString().split("T")[0];
 
   return (
     <div className="min-h-[calc(100vh-80px)] px-4 sm:px-6 lg:px-8 py-6 sm:py-8 bg-gray-50">
@@ -95,87 +267,229 @@ const CreateReservation = () => {
           <div className="mb-6 sm:mb-8 flex items-start justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-[#1e266d]">Create New Reservation</h1>
-              <p className="text-gray-500 mt-1 text-sm sm:text-base">Fill in guest details and booking information</p>
+              <p className="text-gray-500 mt-1 text-sm sm:text-base">
+                Select room type + dates. Room and amount auto-calc from backend.
+              </p>
             </div>
-            <button type="button" onClick={() => navigate("/dashboard/reservations")} className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition">Back</button>
+
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard/reservations")}
+              className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition"
+            >
+              Back
+            </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <span className="w-1 h-6 rounded-full" style={{ backgroundColor: THEME }}></span>
-                Guest Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name *</label>
-                  <input type="text" name="guestName" value={formData.guestName} onChange={handleChange} placeholder="Enter guest full name" className={inputClass("guestName")} />
-                  {errors.guestName && <p className="text-red-500 text-xs font-semibold mt-2">{errors.guestName}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
-                  <input type="email" name="guestEmail" value={formData.guestEmail} onChange={handleChange} placeholder="guest@gmail.com" className={inputClass("guestEmail")} />
-                  {errors.guestEmail && <p className="text-red-500 text-xs font-semibold mt-2">{errors.guestEmail}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Phone *</label>
-                  <input type="tel" name="guestPhone" value={formData.guestPhone} onChange={handleChange} placeholder="Enter phone number" className={inputClass("guestPhone")} />
-                  {errors.guestPhone && <p className="text-red-500 text-xs font-semibold mt-2">{errors.guestPhone}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Number of Guests</label>
-                  <input type="number" name="guests" value={formData.guests} onChange={handleChange} min="1" max="10" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none" />
+            {/* Guest Info (Only for staff UI - guest books self) */}
+            {!isGuest && (
+              <div>
+                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <span className="w-1 h-6 rounded-full" style={{ backgroundColor: THEME }} />
+                  Guest Information
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name *</label>
+                    <input
+                      type="text"
+                      name="guestName"
+                      value={formData.guestName}
+                      onChange={handleChange}
+                      placeholder="Enter guest full name"
+                      className={inputClass("guestName")}
+                    />
+                    {errorText("guestName")}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
+                    <input
+                      type="email"
+                      name="guestEmail"
+                      value={formData.guestEmail}
+                      onChange={handleChange}
+                      placeholder="guest@gmail.com"
+                      className={inputClass("guestEmail")}
+                    />
+                    {errorText("guestEmail")}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Phone *</label>
+                    <input
+                      type="tel"
+                      name="guestPhone"
+                      value={formData.guestPhone}
+                      onChange={handleChange}
+                      placeholder="Enter phone number"
+                      className={inputClass("guestPhone")}
+                    />
+                    {errorText("guestPhone")}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
+            {/* Room + Dates */}
             <div>
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <span className="w-1 h-6 rounded-full" style={{ backgroundColor: THEME }}></span>
-                Room Information
+                <span className="w-1 h-6 rounded-full" style={{ backgroundColor: THEME }} />
+                Booking Information
               </h3>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Room Type *</label>
-                  <select name="roomType" value={formData.roomType} onChange={handleChange} className={inputClass("roomType")}>
+                  <select
+                    name="roomType"
+                    value={formData.roomType}
+                    onChange={handleChange}
+                    className={inputClass("roomType")}
+                  >
                     <option value="">Select Room Type</option>
-                    <option value="Standard Room">Standard Room</option>
-                    <option value="Deluxe Room">Deluxe Room</option>
-                    <option value="Deluxe Suite">Deluxe Suite</option>
-                    <option value="King Suite">King Suite</option>
-                    <option value="Family Room">Family Room</option>
-                    <option value="Presidential Suite">Presidential Suite</option>
+                    {ROOM_TYPES.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
                   </select>
-                  {errors.roomType && <p className="text-red-500 text-xs font-semibold mt-2">{errors.roomType}</p>}
+                  {errorText("roomType")}
                 </div>
+
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Room Number</label>
-                  <input type="text" name="roomId" value={formData.roomId} onChange={handleChange} placeholder="Auto-selected" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none bg-gray-50" readOnly />
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Auto Selected Room</label>
+                  <input
+                    type="text"
+                    value={
+                      previewLoading
+                        ? "Checking availability..."
+                        : preview.roomNumber
+                        ? `${preview.roomName ? `${preview.roomName} • ` : ""}#${preview.roomNumber}`
+                        : "No room selected"
+                    }
+                    readOnly
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
+                  />
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Check-in Date *</label>
-                  <input type="date" name="checkIn" value={formData.checkIn} onChange={handleChange} min={new Date().toISOString().split("T")[0]} className={inputClass("checkIn")} />
-                  {errors.checkIn && <p className="text-red-500 text-xs font-semibold mt-2">{errors.checkIn}</p>}
+                  <input
+                    type="date"
+                    name="checkInDate"
+                    value={formData.checkInDate}
+                    onChange={handleChange}
+                    min={today}
+                    className={inputClass("checkInDate")}
+                  />
+                  {errorText("checkInDate")}
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Check-out Date *</label>
-                  <input type="date" name="checkOut" value={formData.checkOut} onChange={handleChange} min={formData.checkIn || new Date().toISOString().split("T")[0]} className={inputClass("checkOut")} />
-                  {errors.checkOut && <p className="text-red-500 text-xs font-semibold mt-2">{errors.checkOut}</p>}
+                  <input
+                    type="date"
+                    name="checkOutDate"
+                    value={formData.checkOutDate}
+                    onChange={handleChange}
+                    min={formData.checkInDate || today}
+                    className={inputClass("checkOutDate")}
+                  />
+                  {errorText("checkOutDate")}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Adults</label>
+                  <input
+                    type="number"
+                    name="adults"
+                    value={formData.adults}
+                    onChange={handleChange}
+                    min={1}
+                    max={10}
+                    className={inputClass("adults")}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Children</label>
+                  <input
+                    type="number"
+                    name="children"
+                    value={formData.children}
+                    onChange={handleChange}
+                    min={0}
+                    max={10}
+                    className={inputClass("children")}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Payment Method *</label>
+                  <select
+                    name="paymentMethod"
+                    value={formData.paymentMethod}
+                    onChange={handleChange}
+                    className={inputClass("paymentMethod")}
+                  >
+                    {PAYMENT_METHODS.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                  {errorText("paymentMethod")}
+                </div>
+
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Fixed Amount</p>
+                  <p className="text-2xl font-black text-[#1e266d] mt-1">
+                    {previewLoading ? "..." : `Rs ${Number(preview.amount || 0).toLocaleString()}`}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {preview.nights ? `${preview.nights} night(s) • Base Rs ${Number(preview.basePrice || 0).toLocaleString()}` : "Select room type + dates"}
+                  </p>
                 </div>
               </div>
             </div>
 
+            {/* Special Requests */}
             <div>
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <span className="w-1 h-6 rounded-full" style={{ backgroundColor: THEME }}></span>
+                <span className="w-1 h-6 rounded-full" style={{ backgroundColor: THEME }} />
                 Special Requests
               </h3>
-              <textarea name="specialRequest" value={formData.specialRequest} onChange={handleChange} rows="4" placeholder="Enter any special requests or requirements..." className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none resize-none" />
+              <textarea
+                name="specialRequests"
+                value={formData.specialRequests}
+                onChange={handleChange}
+                rows="4"
+                placeholder="Enter any special requests or requirements..."
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d]/15 outline-none resize-none"
+              />
             </div>
 
+            {/* Actions */}
             <div className="pt-2 flex flex-col sm:flex-row gap-3 sm:justify-end">
-              <button type="button" onClick={() => { setFormData({ guestName: "", guestEmail: "", guestPhone: "", roomType: "", roomId: "", checkIn: "", checkOut: "", guests: 1, specialRequest: "" }); setErrors({}); }} className="w-full sm:w-auto px-6 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition">Clear Form</button>
-              <button type="submit" disabled={loading} className="w-full sm:w-auto min-w-[170px] bg-[#1e1e1e] text-white py-3 px-6 rounded-xl font-bold hover:bg-black transition disabled:opacity-60">{loading ? "Creating..." : "Create Reservation"}</button>
+              <button
+                type="button"
+                onClick={handleClear}
+                className="w-full sm:w-auto px-6 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition"
+              >
+                Clear Form
+              </button>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full sm:w-auto min-w-[170px] py-3 px-6 rounded-xl font-bold transition disabled:opacity-60"
+                style={{ backgroundColor: THEME, color: "#111827" }}
+              >
+                {loading ? "Creating..." : "Create Reservation"}
+              </button>
             </div>
           </form>
         </div>

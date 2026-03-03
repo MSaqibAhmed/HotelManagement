@@ -235,22 +235,19 @@ const StaffList = () => {
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => toggleStatus(staff)}
-                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                staff.isActive ? "bg-green-500" : "bg-gray-300"
-                              }`}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${staff.isActive ? "bg-green-500" : "bg-gray-300"
+                                }`}
                               title="Toggle status"
                             >
                               <span
-                                className={`inline-block h-4 w-4 rounded-full bg-white transform transition-transform ${
-                                  staff.isActive ? "translate-x-6" : "translate-x-1"
-                                }`}
+                                className={`inline-block h-4 w-4 rounded-full bg-white transform transition-transform ${staff.isActive ? "translate-x-6" : "translate-x-1"
+                                  }`}
                               />
                             </button>
 
                             <span
-                              className={`text-sm font-medium ${
-                                staff.isActive ? "text-green-600" : "text-gray-500"
-                              }`}
+                              className={`text-sm font-medium ${staff.isActive ? "text-green-600" : "text-gray-500"
+                                }`}
                             >
                               {staff.isActive ? "Active" : "Inactive"}
                             </span>
@@ -348,21 +345,18 @@ const StaffList = () => {
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => toggleStatus(staff)}
-                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                staff.isActive ? "bg-green-500" : "bg-gray-300"
-                              }`}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${staff.isActive ? "bg-green-500" : "bg-gray-300"
+                                }`}
                               title="Toggle status"
                             >
                               <span
-                                className={`inline-block h-4 w-4 rounded-full bg-white transform transition-transform ${
-                                  staff.isActive ? "translate-x-6" : "translate-x-1"
-                                }`}
+                                className={`inline-block h-4 w-4 rounded-full bg-white transform transition-transform ${staff.isActive ? "translate-x-6" : "translate-x-1"
+                                  }`}
                               />
                             </button>
                             <span
-                              className={`text-xs font-medium ${
-                                staff.isActive ? "text-green-600" : "text-gray-500"
-                              }`}
+                              className={`text-xs font-medium ${staff.isActive ? "text-green-600" : "text-gray-500"
+                                }`}
                             >
                               {staff.isActive ? "Active" : "Inactive"}
                             </span>
@@ -404,11 +398,10 @@ const StaffList = () => {
                     <button
                       key={page}
                       onClick={() => setCurrentPage(page)}
-                      className={`px-3 py-1.5 text-sm font-medium rounded-lg ${
-                        currentPage === page
+                      className={`px-3 py-1.5 text-sm font-medium rounded-lg ${currentPage === page
                           ? "bg-[#1e1e1e] text-white"
                           : "border border-gray-200 hover:bg-gray-50"
-                      }`}
+                        }`}
                     >
                       {page}
                     </button>

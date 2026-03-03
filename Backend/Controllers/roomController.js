@@ -37,7 +37,9 @@ export const createRoom = async (req, res) => {
         message: "Room number already exists",
       });
     }
-
+    if (!roomType) {
+      return res.status(400).json({ success: false, message: "Room type is required" });
+    }
     // amenities parse
     let parsedAmenities = [];
     if (amenities) {
@@ -166,6 +168,9 @@ export const updateRoom = async (req, res) => {
         roomNumber: req.body.roomNumber.trim(),
         _id: { $ne: id },
       });
+      if (!roomType) {
+        return res.status(400).json({ success: false, message: "Room type is required" });
+      }
 
       if (existingRoom) {
         return res.status(400).json({
@@ -173,8 +178,6 @@ export const updateRoom = async (req, res) => {
         });
       }
     }
-
-    // ✅ COVER IMAGE (path + filename)
     if (req.files?.coverImage?.[0]) {
       if (room.coverImage?.public_id) {
         await deleteFromCloudinary(room.coverImage.public_id);
@@ -185,8 +188,6 @@ export const updateRoom = async (req, res) => {
         public_id: req.files.coverImage[0].filename || "",
       };
     }
-
-    // ✅ GALLERY (path + filename)
     if (req.files?.galleryImages?.length > 0) {
       const uploadedGalleryImages = req.files.galleryImages.map((file) => ({
         url: file.path || "",

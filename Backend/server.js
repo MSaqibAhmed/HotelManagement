@@ -4,6 +4,7 @@ import connectDb from "./config/connectDb.js"
 import cors from 'cors';
 import authRoutes from './Routes/authRoutes.js';
 import RoomRoute from './Routes/roomRoutes.js';
+import reservationRoutes from './Routes/reservationRoutes.js';
 
 const app = express();
 app.use(cors())
@@ -14,6 +15,7 @@ connectDb();
 
 app.use('/api/auth', authRoutes)
 app.use('/api/room', RoomRoute)
+app.use('/api/reservation',reservationRoutes)
 const PORT = process.env.PORT;
 
 app.listen(PORT, () => {

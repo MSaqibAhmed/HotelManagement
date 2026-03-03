@@ -413,8 +413,8 @@ const MaintenanceRequests = () => {
                       key={page}
                       onClick={() => setCurrentPage(page)}
                       className={`px-3 py-1.5 text-sm font-medium rounded-lg ${currentPage === page
-                          ? "bg-[#1e1e1e] text-white"
-                          : "border border-gray-200 hover:bg-gray-50"
+                        ? "bg-[#1e1e1e] text-white"
+                        : "border border-gray-200 hover:bg-gray-50"
                         }`}
                     >
                       {page}

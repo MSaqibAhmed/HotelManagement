@@ -5,6 +5,9 @@ import api from "../../../api";
 
 const THEME = "#d6c3b3";
 
+// ✅ enum values (same as backend)
+const ROOM_TYPES = ["Standard", "Deluxe", "Executive", "Family"];
+
 const initialForm = {
   roomNumber: "",
   roomName: "",
@@ -15,7 +18,7 @@ const initialForm = {
   floor: "",
   capacity: "",
   extraCapability: "",
-  bedNumber: "",
+  bedNumber: "", // ✅ will show label "Beds"
   bedType: "",
   roomSize: "",
 
@@ -39,6 +42,7 @@ const normalizeAmenities = (amenities) => {
       .filter(Boolean)
       .join(", ");
   }
+
   if (typeof amenities === "string") {
     try {
       const parsed = JSON.parse(amenities);
@@ -49,12 +53,14 @@ const normalizeAmenities = (amenities) => {
           .join(", ");
       }
     } catch {}
+
     return amenities
       .split(",")
       .map((a) => a.replace(/\r?\n/g, "").trim())
       .filter(Boolean)
       .join(", ");
   }
+
   return "";
 };
 
@@ -81,13 +87,12 @@ const EditRoom = () => {
   useEffect(() => {
     return () => {
       if (newCoverPreview) URL.revokeObjectURL(newCoverPreview);
-      if (newGalleryPreview?.length)
-        newGalleryPreview.forEach((u) => URL.revokeObjectURL(u));
+      if (newGalleryPreview?.length) newGalleryPreview.forEach((u) => URL.revokeObjectURL(u));
     };
   }, [newCoverPreview, newGalleryPreview]);
 
   const fetchRoom = async () => {
-    const { data } = await api.get(`/room/getroom/${id}`);
+    const { data } = await api.get(`/room/getsingleroom/${id}`);
     const room = data?.room || data;
 
     setCurrentCover(room?.coverImage?.url || "");
@@ -96,22 +101,34 @@ const EditRoom = () => {
     setFormData({
       roomNumber: room?.roomNumber || "",
       roomName: room?.roomName || "",
-      roomType: room?.roomType || "",
+      roomType: ROOM_TYPES.includes(room?.roomType) ? room.roomType : "",
       typeDescription: room?.typeDescription || "",
       amenities: normalizeAmenities(room?.amenities),
 
-      floor: room?.floor?.toString?.() || "",
-      capacity: room?.capacity?.toString?.() || "",
+      floor: room?.floor !== undefined && room?.floor !== null ? String(room.floor) : "",
+      capacity: room?.capacity !== undefined && room?.capacity !== null ? String(room.capacity) : "",
       extraCapability: room?.extraCapability || "",
-      bedNumber: room?.bedNumber?.toString?.() || "",
+      bedNumber: room?.bedNumber !== undefined && room?.bedNumber !== null ? String(room.bedNumber) : "",
       bedType: room?.bedType || "",
       roomSize: room?.roomSize || "",
 
-      roomPrice: room?.pricing?.basePrice?.toString?.() || "",
-      weekendPrice: room?.pricing?.weekendPrice?.toString?.() || "",
-      bedCharge: room?.pricing?.extraBedCharge?.toString?.() || "",
+      roomPrice:
+        room?.pricing?.basePrice !== undefined && room?.pricing?.basePrice !== null
+          ? String(room.pricing.basePrice)
+          : "",
+      weekendPrice:
+        room?.pricing?.weekendPrice !== undefined && room?.pricing?.weekendPrice !== null
+          ? String(room.pricing.weekendPrice)
+          : "",
+      bedCharge:
+        room?.pricing?.extraBedCharge !== undefined && room?.pricing?.extraBedCharge !== null
+          ? String(room.pricing.extraBedCharge)
+          : "",
       seasonalRate: room?.pricing?.seasonalRate || "Normal",
-      discountPercent: room?.pricing?.discountPercent?.toString?.() || "",
+      discountPercent:
+        room?.pricing?.discountPercent !== undefined && room?.pricing?.discountPercent !== null
+          ? String(room.pricing.discountPercent)
+          : "",
 
       status: room?.status || "Available",
       isActive: room?.isActive ? "true" : "false",
@@ -127,6 +144,7 @@ const EditRoom = () => {
         setLoading(true);
         await fetchRoom();
       } catch (err) {
+        console.log("FETCH ROOM ERROR:", err?.response || err);
         toast.error(err?.response?.data?.message || "Failed to load room");
         navigate("/dashboard/room-management/rooms");
       } finally {
@@ -139,6 +157,19 @@ const EditRoom = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    // ✅ discount clamp 0-100
+    if (name === "discountPercent") {
+      if (value === "") return setFormData((p) => ({ ...p, discountPercent: "" }));
+
+      let num = Number(value);
+      if (Number.isNaN(num)) num = 0;
+      if (num < 0) num = 0;
+      if (num > 100) num = 100;
+
+      return setFormData((p) => ({ ...p, discountPercent: String(num) }));
+    }
+
     setFormData((p) => ({ ...p, [name]: value }));
   };
 
@@ -199,24 +230,19 @@ const EditRoom = () => {
       payload.append("roomDescription", (formData.roomDescription || "").trim());
       payload.append("reserveCondition", (formData.reserveCondition || "").trim());
 
-      // ✅ new cover -> backend replaces cover
       if (newCover) payload.append("coverImage", newCover);
 
-      // ✅ new gallery -> REPLACE old gallery in DB
       if (newGallery.length > 0) {
-        payload.append("replaceGallery", "true"); // ⭐ IMPORTANT LINE
-        newGallery.slice(0, 5).forEach((f) => payload.append("galleryImages", f));
+        payload.append("replaceGallery", "true");
+        newGallery.forEach((f) => payload.append("galleryImages", f));
       }
 
-      // ✅ do not set Content-Type manually
       const { data } = await api.put(`/room/updateroom/${id}`, payload);
 
       toast.success(data?.message || "Room updated successfully");
 
-      // refresh UI from DB
       await fetchRoom();
 
-      // clear selected
       setNewCover(null);
       if (newCoverPreview) URL.revokeObjectURL(newCoverPreview);
       setNewCoverPreview("");
@@ -239,15 +265,16 @@ const EditRoom = () => {
     }
   };
 
+  const labelClass = "block text-sm font-semibold text-gray-700 mb-2";
+  const inputClass = "w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none";
+
   return (
     <div className="min-h-[calc(100vh-80px)] px-4 sm:px-6 lg:px-8 py-6 sm:py-8 bg-gray-50">
       <div className="w-full max-w-7xl mx-auto">
         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-5 sm:p-7 lg:p-8">
           <div className="mb-6 sm:mb-8 flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-[#1e266d]">
-                Edit Room #{id}
-              </h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-[#1e266d]">Edit Room #{id}</h1>
               <p className="text-gray-500 mt-1 text-sm sm:text-base">
                 Upload new gallery to replace old images in DB.
               </p>
@@ -262,55 +289,33 @@ const EditRoom = () => {
             </button>
           </div>
 
-          {loading && (
-            <div className="mb-4 text-sm font-semibold text-gray-600">Loading...</div>
-          )}
+          {loading && <div className="mb-4 text-sm font-semibold text-gray-600">Loading...</div>}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Images */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  Current Cover
-                </label>
+                <label className={labelClass}>Current Cover</label>
                 <div className="rounded-2xl overflow-hidden border border-gray-200 bg-gray-50 p-3">
                   {currentCover ? (
-                    <img
-                      src={currentCover}
-                      alt="Cover"
-                      className="w-full h-72 object-cover rounded-xl"
-                    />
+                    <img src={currentCover} alt="Cover" className="w-full h-72 object-cover rounded-xl" />
                   ) : (
-                    <div className="h-72 flex items-center justify-center text-gray-500">
-                      No cover image
-                    </div>
+                    <div className="h-72 flex items-center justify-center text-gray-500">No cover image</div>
                   )}
                 </div>
 
-                <label className="block text-sm font-semibold text-gray-700 mt-5 mb-2">
-                  Upload New Cover (optional)
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleNewCover}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none"
-                />
+                <label className={`${labelClass} mt-5`}>Upload New Cover (optional)</label>
+                <input type="file" accept="image/*" onChange={handleNewCover} className={inputClass} />
+
                 {newCoverPreview && (
                   <div className="mt-3 rounded-2xl overflow-hidden border border-gray-200 bg-gray-50 p-3">
-                    <img
-                      src={newCoverPreview}
-                      alt="New Cover Preview"
-                      className="w-full h-56 object-cover rounded-xl"
-                    />
+                    <img src={newCoverPreview} alt="New Cover Preview" className="w-full h-56 object-cover rounded-xl" />
                   </div>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  Current Gallery
-                </label>
+                <label className={labelClass}>Current Gallery</label>
                 {currentGallery.length > 0 ? (
                   <div className="grid grid-cols-2 gap-3">
                     {currentGallery.map((img, idx) => (
@@ -318,11 +323,7 @@ const EditRoom = () => {
                         key={img.public_id || idx}
                         className="rounded-2xl overflow-hidden border border-gray-200 bg-gray-50 p-2"
                       >
-                        <img
-                          src={img.url}
-                          alt={`Gallery ${idx + 1}`}
-                          className="w-full h-32 object-cover rounded-xl"
-                        />
+                        <img src={img.url} alt={`Gallery ${idx + 1}`} className="w-full h-32 object-cover rounded-xl" />
                       </div>
                     ))}
                   </div>
@@ -330,16 +331,10 @@ const EditRoom = () => {
                   <div className="text-sm text-gray-500">No gallery images</div>
                 )}
 
-                <label className="block text-sm font-semibold text-gray-700 mt-5 mb-2">
+                <label className={`${labelClass} mt-5`}>
                   Upload New Gallery (max 5) — this will REPLACE old gallery
                 </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleNewGallery}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none"
-                />
+                <input type="file" accept="image/*" multiple onChange={handleNewGallery} className={inputClass} />
 
                 {newGalleryPreview.length > 0 && (
                   <div className="mt-3 grid grid-cols-2 gap-3">
@@ -348,11 +343,7 @@ const EditRoom = () => {
                         key={index}
                         className="rounded-2xl overflow-hidden border border-gray-200 bg-gray-50 p-2"
                       >
-                        <img
-                          src={img}
-                          alt={`New Gallery ${index + 1}`}
-                          className="w-full h-32 object-cover rounded-xl"
-                        />
+                        <img src={img} alt={`New Gallery ${index + 1}`} className="w-full h-32 object-cover rounded-xl" />
                       </div>
                     ))}
                   </div>
@@ -360,109 +351,92 @@ const EditRoom = () => {
               </div>
             </div>
 
-            {/* Form Fields */}
+            {/* Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Room Number *
-                </label>
+                <label className={labelClass}>Room Number</label>
                 <input
                   name="roomNumber"
                   value={formData.roomNumber}
                   onChange={handleChange}
-                  placeholder="e.g. 101"
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                  placeholder="Room Number"
+                  className={inputClass}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Room Name
-                </label>
+                <label className={labelClass}>Room Name</label>
                 <input
                   name="roomName"
                   value={formData.roomName}
                   onChange={handleChange}
-                  placeholder="e.g. Premium Deluxe"
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                  placeholder="Room Name"
+                  className={inputClass}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Room Type *
-                </label>
-                <input
-                  name="roomType"
-                  value={formData.roomType}
-                  onChange={handleChange}
-                  placeholder="e.g. Deluxe Suite"
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
-                />
+                <label className={labelClass}>Room Type</label>
+                <select name="roomType" value={formData.roomType} onChange={handleChange} className={inputClass}>
+                  <option value="">Select Room Type</option>
+                  {ROOM_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Floor *
-                </label>
+                <label className={labelClass}>Floor</label>
                 <input
                   type="number"
                   name="floor"
                   value={formData.floor}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                  placeholder="Floor"
+                  className={inputClass}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Capacity *
-                </label>
+                <label className={labelClass}>Capacity</label>
                 <input
                   type="number"
                   name="capacity"
                   value={formData.capacity}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                  placeholder="Capacity"
+                  className={inputClass}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Extra Capability
-                </label>
+                <label className={labelClass}>Extra Capability</label>
                 <input
                   name="extraCapability"
                   value={formData.extraCapability}
                   onChange={handleChange}
-                  placeholder="e.g. Extra Bed Allowed"
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                  placeholder="Extra Capability"
+                  className={inputClass}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Bed Number *
-                </label>
+                <label className={labelClass}>Beds</label>
                 <input
                   type="number"
                   name="bedNumber"
                   value={formData.bedNumber}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                  placeholder="Beds"
+                  className={inputClass}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Bed Type *
-                </label>
-                <select
-                  name="bedType"
-                  value={formData.bedType}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
-                >
+                <label className={labelClass}>Bed Type</label>
+                <select name="bedType" value={formData.bedType} onChange={handleChange} className={inputClass}>
                   <option value="">Select Bed Type</option>
                   <option value="Single">Single</option>
                   <option value="Double">Double</option>
@@ -473,15 +447,8 @@ const EditRoom = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Room Size *
-                </label>
-                <select
-                  name="roomSize"
-                  value={formData.roomSize}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
-                >
+                <label className={labelClass}>Room Size</label>
+                <select name="roomSize" value={formData.roomSize} onChange={handleChange} className={inputClass}>
                   <option value="">Select Room Size</option>
                   <option value="Small">Small</option>
                   <option value="Queen">Queen</option>
@@ -491,54 +458,44 @@ const EditRoom = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Base Price *
-                </label>
+                <label className={labelClass}>Base Price</label>
                 <input
                   type="number"
                   name="roomPrice"
                   value={formData.roomPrice}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                  placeholder="Base Price"
+                  className={inputClass}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Weekend Price
-                </label>
+                <label className={labelClass}>Weekend Price</label>
                 <input
                   type="number"
                   name="weekendPrice"
                   value={formData.weekendPrice}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                  placeholder="Weekend Price"
+                  className={inputClass}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Extra Bed Charge
-                </label>
+                <label className={labelClass}>Extra Bed Charge</label>
                 <input
                   type="number"
                   name="bedCharge"
                   value={formData.bedCharge}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                  placeholder="Extra Bed Charge"
+                  className={inputClass}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Seasonal Rate
-                </label>
-                <select
-                  name="seasonalRate"
-                  value={formData.seasonalRate}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
-                >
+                <label className={labelClass}>Seasonal Rate</label>
+                <select name="seasonalRate" value={formData.seasonalRate} onChange={handleChange} className={inputClass}>
                   <option value="Normal">Normal</option>
                   <option value="Holiday">Holiday</option>
                   <option value="Premium">Premium</option>
@@ -547,28 +504,22 @@ const EditRoom = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Discount %
-                </label>
+                <label className={labelClass}>Discount %</label>
                 <input
                   type="number"
                   name="discountPercent"
                   value={formData.discountPercent}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
+                  placeholder="Discount %"
+                  min={0}
+                  max={100}
+                  className={inputClass}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Status
-                </label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
-                >
+                <label className={labelClass}>Status</label>
+                <select name="status" value={formData.status} onChange={handleChange} className={inputClass}>
                   <option value="Available">Available</option>
                   <option value="Occupied">Occupied</option>
                   <option value="Cleaning">Cleaning</option>
@@ -577,75 +528,59 @@ const EditRoom = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  State
-                </label>
-                <select
-                  name="isActive"
-                  value={formData.isActive}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
-                >
+                <label className={labelClass}>State</label>
+                <select name="isActive" value={formData.isActive} onChange={handleChange} className={inputClass}>
                   <option value="true">Active</option>
                   <option value="false">Inactive</option>
                 </select>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Type Description
-                </label>
-                <textarea
-                  rows={3}
-                  name="typeDescription"
-                  value={formData.typeDescription}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10 resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Amenities (comma separated)
-                </label>
-                <input
-                  name="amenities"
-                  value={formData.amenities}
-                  onChange={handleChange}
-                  placeholder="WiFi, AC, TV, Mini Bar"
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10"
-                />
-              </div>
+            <div>
+              <label className={labelClass}>Type Description</label>
+              <textarea
+                rows={3}
+                name="typeDescription"
+                value={formData.typeDescription}
+                onChange={handleChange}
+                placeholder="Type Description"
+                className={inputClass}
+              />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Room Description *
-                </label>
-                <textarea
-                  rows={3}
-                  name="roomDescription"
-                  value={formData.roomDescription}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10 resize-none"
-                />
-              </div>
+            <div>
+              <label className={labelClass}>Amenities (comma separated)</label>
+              <input
+                name="amenities"
+                value={formData.amenities}
+                onChange={handleChange}
+                placeholder="WiFi, AC, TV, Mini Bar"
+                className={inputClass}
+              />
+            </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Reserve Condition *
-                </label>
-                <textarea
-                  rows={3}
-                  name="reserveCondition"
-                  value={formData.reserveCondition}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#1e266d]/10 resize-none"
-                />
-              </div>
+            <div>
+              <label className={labelClass}>Room Description</label>
+              <textarea
+                rows={3}
+                name="roomDescription"
+                value={formData.roomDescription}
+                onChange={handleChange}
+                placeholder="Room Description"
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>Reserve Condition</label>
+              <textarea
+                rows={3}
+                name="reserveCondition"
+                value={formData.reserveCondition}
+                onChange={handleChange}
+                placeholder="Reserve Condition"
+                className={inputClass}
+              />
             </div>
 
             <div className="pt-2 flex flex-col sm:flex-row gap-3 sm:justify-end">

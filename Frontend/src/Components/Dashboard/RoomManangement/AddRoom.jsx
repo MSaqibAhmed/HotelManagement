@@ -5,6 +5,9 @@ import api from "../../../api";
 
 const THEME = "#d6c3b3";
 
+// ✅ enum values (same as backend)
+const ROOM_TYPES = ["Standard", "Deluxe", "Executive", "Family"];
+
 const initialFormData = {
   roomNumber: "",
   roomName: "",
@@ -75,11 +78,11 @@ const AddRoom = () => {
     const reserveCondition = (formData.reserveCondition || "").trim();
 
     if (!roomNumber) newErrors.roomNumber = "Room number is required";
-    else if (!roomNumberRegex.test(roomNumber))
-      newErrors.roomNumber = "Use letters, numbers or hyphen only";
+    else if (!roomNumberRegex.test(roomNumber)) newErrors.roomNumber = "Use letters, numbers or hyphen only";
 
+    // ✅ enum validation
     if (!roomType) newErrors.roomType = "Room type is required";
-    else if (!textRegex.test(roomType)) newErrors.roomType = "Invalid room type";
+    else if (!ROOM_TYPES.includes(roomType)) newErrors.roomType = "Invalid room type";
 
     if (roomName && !textRegex.test(roomName)) newErrors.roomName = "Invalid room name";
 
@@ -94,15 +97,13 @@ const AddRoom = () => {
     else if (Number(formData.capacity) < 1) newErrors.capacity = "Capacity must be at least 1";
 
     if (!formData.bedNumber) newErrors.bedNumber = "Bed number is required";
-    else if (Number(formData.bedNumber) < 1)
-      newErrors.bedNumber = "Bed number must be at least 1";
+    else if (Number(formData.bedNumber) < 1) newErrors.bedNumber = "Bed number must be at least 1";
 
     if (!formData.bedType) newErrors.bedType = "Bed type is required";
     if (!formData.roomSize) newErrors.roomSize = "Room size is required";
 
     if (!formData.roomPrice) newErrors.roomPrice = "Base price is required";
-    else if (Number(formData.roomPrice) <= 0)
-      newErrors.roomPrice = "Base price must be greater than 0";
+    else if (Number(formData.roomPrice) <= 0) newErrors.roomPrice = "Base price must be greater than 0";
 
     if (formData.weekendPrice && Number(formData.weekendPrice) < 0)
       newErrors.weekendPrice = "Weekend price cannot be negative";
@@ -118,16 +119,13 @@ const AddRoom = () => {
     }
 
     if (!roomDescription) newErrors.roomDescription = "Room description is required";
-    else if (!descriptionRegex.test(roomDescription))
-      newErrors.roomDescription = "Minimum 10 characters required";
+    else if (!descriptionRegex.test(roomDescription)) newErrors.roomDescription = "Minimum 10 characters required";
 
     if (!reserveCondition) newErrors.reserveCondition = "Reserve condition is required";
-    else if (!descriptionRegex.test(reserveCondition))
-      newErrors.reserveCondition = "Minimum 10 characters required";
+    else if (!descriptionRegex.test(reserveCondition)) newErrors.reserveCondition = "Minimum 10 characters required";
 
     if (!coverImage) newErrors.coverImage = "Cover image is required";
-    else if (!coverImage.type?.startsWith("image/"))
-      newErrors.coverImage = "Only image files are allowed";
+    else if (!coverImage.type?.startsWith("image/")) newErrors.coverImage = "Only image files are allowed";
 
     if (galleryImages.length > 5) newErrors.galleryImages = "Max 5 gallery images allowed";
 
@@ -196,7 +194,7 @@ const AddRoom = () => {
 
       const payload = new FormData();
 
-      // ✅ amenities JSON string (controller parses JSON)
+      // amenities JSON string (controller parses JSON)
       const amenitiesArray = (formData.amenities || "")
         .split(",")
         .map((item) => item.trim())
@@ -232,19 +230,12 @@ const AddRoom = () => {
       payload.append("coverImage", coverImage);
       galleryImages.slice(0, 5).forEach((file) => payload.append("galleryImages", file));
 
-      // ✅ DO NOT set Content-Type manually; axios sets boundary correctly
       const { data } = await api.post("/room/createroom", payload);
 
       toast.success(data?.message || "Room created successfully");
       navigate("/dashboard/room-management/rooms");
     } catch (error) {
-      const status = error.response?.status;
       const data = error.response?.data;
-
-      console.log("ROOM CREATE ERROR STATUS:", status);
-      console.log("ROOM CREATE ERROR DATA:", data);
-      console.log("ROOM CREATE ERROR FULL:", error);
-
       toast.error(
         data?.message ||
           data?.error ||
@@ -266,9 +257,7 @@ const AddRoom = () => {
     }`;
 
   const errorText = (field) =>
-    errors[field] ? (
-      <p className="text-xs text-red-500 mt-2 font-semibold">{errors[field]}</p>
-    ) : null;
+    errors[field] ? <p className="text-xs text-red-500 mt-2 font-semibold">{errors[field]}</p> : null;
 
   return (
     <div className="min-h-[calc(100vh-80px)] px-4 sm:px-6 lg:px-8 py-6 sm:py-8 bg-gray-50">
@@ -276,9 +265,7 @@ const AddRoom = () => {
         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-5 sm:p-7 lg:p-8">
           <div className="mb-6 sm:mb-8 flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-[#1e266d]">
-                Add Room
-              </h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-[#1e266d]">Add Room</h1>
               <p className="text-gray-500 mt-1 text-sm sm:text-base">
                 Create a room with pricing, images and room details.
               </p>
@@ -296,32 +283,19 @@ const AddRoom = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Cover Image *
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleCoverImage}
-                  className={inputClass("coverImage")}
-                />
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Cover Image *</label>
+                <input type="file" accept="image/*" onChange={handleCoverImage} className={inputClass("coverImage")} />
                 {errorText("coverImage")}
 
                 {coverPreview && (
                   <div className="mt-3 rounded-2xl overflow-hidden border border-gray-200 bg-gray-50 p-3">
-                    <img
-                      src={coverPreview}
-                      alt="Cover Preview"
-                      className="w-full h-72 object-cover rounded-xl"
-                    />
+                    <img src={coverPreview} alt="Cover Preview" className="w-full h-72 object-cover rounded-xl" />
                   </div>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Gallery Images (max 5)
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Gallery Images (max 5)</label>
                 <input
                   type="file"
                   accept="image/*"
@@ -342,11 +316,7 @@ const AddRoom = () => {
                         key={index}
                         className="rounded-2xl overflow-hidden border border-gray-200 bg-gray-50 p-2"
                       >
-                        <img
-                          src={img}
-                          alt={`Gallery ${index + 1}`}
-                          className="w-full h-28 object-cover rounded-xl"
-                        />
+                        <img src={img} alt={`Gallery ${index + 1}`} className="w-full h-28 object-cover rounded-xl" />
                       </div>
                     ))}
                   </div>
@@ -356,9 +326,7 @@ const AddRoom = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Room Number *
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Room Number *</label>
                 <input
                   name="roomNumber"
                   value={formData.roomNumber}
@@ -370,9 +338,7 @@ const AddRoom = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Room Name
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Room Name</label>
                 <input
                   name="roomName"
                   value={formData.roomName}
@@ -384,37 +350,26 @@ const AddRoom = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Room Type *
-                </label>
-                <input
-                  name="roomType"
-                  value={formData.roomType}
-                  onChange={handleChange}
-                  placeholder="e.g. Deluxe Suite"
-                  className={inputClass("roomType")}
-                />
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Room Type *</label>
+                <select name="roomType" value={formData.roomType} onChange={handleChange} className={inputClass("roomType")}>
+                  <option value="">Select Room Type</option>
+                  {ROOM_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
                 {errorText("roomType")}
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Floor *
-                </label>
-                <input
-                  type="number"
-                  name="floor"
-                  value={formData.floor}
-                  onChange={handleChange}
-                  className={inputClass("floor")}
-                />
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Floor *</label>
+                <input type="number" name="floor" value={formData.floor} onChange={handleChange} className={inputClass("floor")} />
                 {errorText("floor")}
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Capacity *
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Capacity *</label>
                 <input
                   type="number"
                   name="capacity"
@@ -426,9 +381,7 @@ const AddRoom = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Extra Capability
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Extra Capability</label>
                 <input
                   name="extraCapability"
                   value={formData.extraCapability}
@@ -440,9 +393,7 @@ const AddRoom = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Bed Number *
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Beds</label>
                 <input
                   type="number"
                   name="bedNumber"
@@ -454,15 +405,8 @@ const AddRoom = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Bed Type *
-                </label>
-                <select
-                  name="bedType"
-                  value={formData.bedType}
-                  onChange={handleChange}
-                  className={inputClass("bedType")}
-                >
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Bed Type *</label>
+                <select name="bedType" value={formData.bedType} onChange={handleChange} className={inputClass("bedType")}>
                   <option value="">Select Bed Type</option>
                   <option value="Single">Single</option>
                   <option value="Double">Double</option>
@@ -474,15 +418,8 @@ const AddRoom = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Room Size *
-                </label>
-                <select
-                  name="roomSize"
-                  value={formData.roomSize}
-                  onChange={handleChange}
-                  className={inputClass("roomSize")}
-                >
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Room Size *</label>
+                <select name="roomSize" value={formData.roomSize} onChange={handleChange} className={inputClass("roomSize")}>
                   <option value="">Select Room Size</option>
                   <option value="Small">Small</option>
                   <option value="Queen">Queen</option>
@@ -493,23 +430,13 @@ const AddRoom = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Base Price *
-                </label>
-                <input
-                  type="number"
-                  name="roomPrice"
-                  value={formData.roomPrice}
-                  onChange={handleChange}
-                  className={inputClass("roomPrice")}
-                />
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Base Price *</label>
+                <input type="number" name="roomPrice" value={formData.roomPrice} onChange={handleChange} className={inputClass("roomPrice")} />
                 {errorText("roomPrice")}
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Weekend Price
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Weekend Price</label>
                 <input
                   type="number"
                   name="weekendPrice"
@@ -521,23 +448,13 @@ const AddRoom = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Extra Bed Charge
-                </label>
-                <input
-                  type="number"
-                  name="bedCharge"
-                  value={formData.bedCharge}
-                  onChange={handleChange}
-                  className={inputClass("bedCharge")}
-                />
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Extra Bed Charge</label>
+                <input type="number" name="bedCharge" value={formData.bedCharge} onChange={handleChange} className={inputClass("bedCharge")} />
                 {errorText("bedCharge")}
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Seasonal Rate
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Seasonal Rate</label>
                 <select
                   name="seasonalRate"
                   value={formData.seasonalRate}
@@ -552,9 +469,7 @@ const AddRoom = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Discount %
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Discount %</label>
                 <input
                   type="number"
                   name="discountPercent"
@@ -566,15 +481,8 @@ const AddRoom = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Status
-                </label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleChange}
-                  className={inputClass("status")}
-                >
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Status</label>
+                <select name="status" value={formData.status} onChange={handleChange} className={inputClass("status")}>
                   <option value="Available">Available</option>
                   <option value="Occupied">Occupied</option>
                   <option value="Cleaning">Cleaning</option>
@@ -583,15 +491,8 @@ const AddRoom = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  State
-                </label>
-                <select
-                  name="isActive"
-                  value={formData.isActive}
-                  onChange={handleChange}
-                  className={inputClass("isActive")}
-                >
+                <label className="block text-sm font-semibold text-gray-700 mb-2">State</label>
+                <select name="isActive" value={formData.isActive} onChange={handleChange} className={inputClass("isActive")}>
                   <option value="true">Active</option>
                   <option value="false">Inactive</option>
                 </select>
@@ -599,23 +500,13 @@ const AddRoom = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Type Description
-              </label>
-              <textarea
-                rows={3}
-                name="typeDescription"
-                value={formData.typeDescription}
-                onChange={handleChange}
-                className={inputClass("typeDescription")}
-              />
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Type Description</label>
+              <textarea rows={3} name="typeDescription" value={formData.typeDescription} onChange={handleChange} className={inputClass("typeDescription")} />
               {errorText("typeDescription")}
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Amenities (comma separated)
-              </label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Amenities (comma separated)</label>
               <input
                 name="amenities"
                 value={formData.amenities}
@@ -626,30 +517,14 @@ const AddRoom = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Room Description *
-              </label>
-              <textarea
-                rows={3}
-                name="roomDescription"
-                value={formData.roomDescription}
-                onChange={handleChange}
-                className={inputClass("roomDescription")}
-              />
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Room Description *</label>
+              <textarea rows={3} name="roomDescription" value={formData.roomDescription} onChange={handleChange} className={inputClass("roomDescription")} />
               {errorText("roomDescription")}
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Reserve Condition *
-              </label>
-              <textarea
-                rows={3}
-                name="reserveCondition"
-                value={formData.reserveCondition}
-                onChange={handleChange}
-                className={inputClass("reserveCondition")}
-              />
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Reserve Condition *</label>
+              <textarea rows={3} name="reserveCondition" value={formData.reserveCondition} onChange={handleChange} className={inputClass("reserveCondition")} />
               {errorText("reserveCondition")}
             </div>
 

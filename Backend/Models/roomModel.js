@@ -2,12 +2,12 @@ import mongoose from "mongoose";
 
 const roomSchema = new mongoose.Schema(
   {
-   roomNumber: {
-  type: String,
-  required: true,
-  trim: true,
-  unique: true,
-},
+    roomNumber: {
+      type: String,
+      required: true,
+      trim: true,
+      unique: true,
+    },
     roomName: {
       type: String,
       trim: true,
@@ -17,6 +17,7 @@ const roomSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      enum: ["Standard", "Deluxe", "Executive", "Family"],
     },
     typeDescription: {
       type: String,

@@ -6,62 +6,13 @@ import { uploadRoomImages } from "../config/cloudinary.js";
 
 const RoomRoute = express.Router();
 
-RoomRoute.post(
-  "/createroom",
-  protect,
-  authorizeRoles("admin"),
-  uploadRoomImages,
-  createRoom
-);
-
-RoomRoute.get(
-  "/getroom",
-  protect,
-  authorizeRoles("admin", "manager", "receptionist"),
-  getRooms
-);
-
-RoomRoute.get(
-  "/available",
-  protect,
-  authorizeRoles("admin", "manager", "receptionist", "guest"),
-  getAvailableRooms
-);
-
-RoomRoute.get(
-  "/getsingleroom/:id",
-  protect,
-  authorizeRoles("admin", "manager", "receptionist"),
-  getRoomById
-);
-
-RoomRoute.put(
-  "/updateroom/:id",
-  protect,
-  authorizeRoles("admin"),
-  uploadRoomImages,
-  updateRoom
-);
-
-RoomRoute.delete(
-  "/deleteroom/:id",
-  protect,
-  authorizeRoles("admin"),
-  deleteRoom
-);
-
-RoomRoute.patch(
-  "/updatestatus/:id/status",
-  protect,
-  authorizeRoles("admin", "manager", "housekeeping", "maintenance"),
-  updateRoomStatus
-);
-
-RoomRoute.patch(
-  "/updateactivestatus/:id/active-status",
-  protect,
-  authorizeRoles("admin"),
-  updateRoomActiveStatus
-);
+RoomRoute.post("/createroom",protect,authorizeRoles("admin"),uploadRoomImages,createRoom);
+RoomRoute.get("/getroom",protect,authorizeRoles("admin", "manager", "receptionist"),getRooms);
+RoomRoute.get("/available",protect,authorizeRoles("admin", "manager", "receptionist", "guest"),getAvailableRooms);
+RoomRoute.get("/getsingleroom/:id",protect,authorizeRoles("admin", "manager", "receptionist"),getRoomById);
+RoomRoute.put("/updateroom/:id",protect,authorizeRoles("admin"),uploadRoomImages,updateRoom);
+RoomRoute.patch("/updatestatus/:id/status",protect,authorizeRoles("admin", "manager", "housekeeping", "maintenance"),updateRoomStatus);
+RoomRoute.patch("/updateactivestatus/:id/active-status",protect,authorizeRoles("admin"),updateRoomActiveStatus);
+RoomRoute.delete("/deleteroom/:id",protect,authorizeRoles("admin"),deleteRoom);
 
 export default RoomRoute;

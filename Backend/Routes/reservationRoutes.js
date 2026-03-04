@@ -5,7 +5,7 @@ import {
   getMyReservations,
   getAllReservations,
   getReservationById,
-  updateReservation, // ✅ added
+  updateReservation,
   cancelReservation,
   checkInReservation,
   checkOutReservation,
@@ -44,19 +44,18 @@ reservationRoutes.get(
   getAllReservations
 );
 
-// ✅ UPDATE
-reservationRoutes.put(
-  "/:id",
-  protect,
-  authorizeRoles("guest", "admin", "manager", "receptionist"),
-  updateReservation
-);
-
 reservationRoutes.get(
   "/:id",
   protect,
   authorizeRoles("guest", "admin", "manager", "receptionist"),
   getReservationById
+);
+
+reservationRoutes.put(
+  "/:id",
+  protect,
+  authorizeRoles("admin", "manager", "receptionist"),
+  updateReservation
 );
 
 reservationRoutes.patch(

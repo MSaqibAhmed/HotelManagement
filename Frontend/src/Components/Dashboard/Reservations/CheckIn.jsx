@@ -5,7 +5,6 @@ import api from "../../../api";
 
 const THEME = "#d6c3b3";
 
-// ✅ role helpers
 const getRole = () => {
   try {
     const u = JSON.parse(localStorage.getItem("user") || "{}");
@@ -15,13 +14,11 @@ const getRole = () => {
   }
 };
 
-// ✅ backend allows checkin: admin/receptionist only
 const canCheckInRole = (role) => ["admin", "receptionist"].includes(role);
 
 const normalize = (r) => {
   const guestName = r?.guestSnapshot?.name || r?.guest?.name || "Guest";
   const guestEmail = r?.guestSnapshot?.email || r?.guest?.email || "";
-
   const bookingId = r?.reservationNumber || r?._id;
 
   const roomType = r?.roomType || r?.room?.roomType || "";
@@ -46,24 +43,58 @@ const normalize = (r) => {
   };
 };
 
+const ConfirmModal = ({ open, title, description, confirmText, cancelText, loading, onClose, onConfirm }) => {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/40">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+        <div className="p-5">
+          <h3 className="text-xl font-bold text-[#1e266d]">{title}</h3>
+          {description && <p className="text-sm text-gray-600 mt-2">{description}</p>}
+        </div>
+
+        <div className="px-5 pb-5 flex gap-3 justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 disabled:opacity-60"
+          >
+            {cancelText || "Cancel"}
+          </button>
+
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={loading}
+            className="px-5 py-2.5 rounded-xl font-bold text-gray-900 disabled:opacity-60"
+            style={{ backgroundColor: THEME }}
+          >
+            {loading ? "Processing..." : confirmText || "Confirm"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const CheckIn = () => {
   const role = useMemo(() => getRole(), []);
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
   const fetchEligibleReservations = async () => {
     try {
       setLoading(true);
-
-      // ✅ staff fetch all reservations
       const { data } = await api.get("/reservation");
       const list = (data?.reservations || []).map(normalize);
-
-      // ✅ backend check-in requires Confirmed
-      const eligible = list.filter((r) => r.status === "Confirmed");
-
-      setReservations(eligible);
+      setReservations(list.filter((r) => r.status === "Confirmed"));
     } catch (e) {
       toast.error(e?.response?.data?.message || "Failed to fetch eligible check-ins");
       setReservations([]);
@@ -91,22 +122,33 @@ const CheckIn = () => {
     });
   }, [reservations, searchTerm]);
 
-  const handleCheckIn = async (reservation) => {
-    const ok = window.confirm(`Check-in ${reservation.guestName} (${reservation.bookingId})?`);
-    if (!ok) return;
+  const openConfirm = (reservation) => {
+    setSelected(reservation);
+    setConfirmOpen(true);
+  };
+
+  const closeConfirm = () => {
+    if (actionLoading) return;
+    setConfirmOpen(false);
+    setSelected(null);
+  };
+
+  const confirmCheckIn = async () => {
+    if (!selected?._id) return;
 
     try {
-      await api.patch(`/reservation/${reservation._id}/checkin`);
+      setActionLoading(true);
+      await api.patch(`/reservation/${selected._id}/checkin`);
       toast.success("Checked-in successfully");
-
-      // ✅ remove from eligible list
-      setReservations((prev) => prev.filter((r) => r._id !== reservation._id));
+      setReservations((prev) => prev.filter((r) => r._id !== selected._id));
+      closeConfirm();
     } catch (e) {
       toast.error(e?.response?.data?.message || "Check-in failed");
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  // ✅ Role restriction UI
   if (!canCheckInRole(role)) {
     return (
       <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-lg">
@@ -125,6 +167,14 @@ const CheckIn = () => {
           <h1 className="text-2xl font-bold text-[#1e266d]">Check-In</h1>
           <p className="text-sm text-gray-500 mt-1">Only Confirmed reservations can be checked in</p>
         </div>
+
+        <button
+          type="button"
+          onClick={fetchEligibleReservations}
+          className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition"
+        >
+          Refresh
+        </button>
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
@@ -153,9 +203,7 @@ const CheckIn = () => {
               className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none bg-gray-50"
             />
           </div>
-          <span className="text-sm text-gray-500 sm:whitespace-nowrap">
-            {eligibleForCheckIn.length} eligible
-          </span>
+          <span className="text-sm text-gray-500 sm:whitespace-nowrap">{eligibleForCheckIn.length} eligible</span>
         </div>
       </div>
 
@@ -225,7 +273,7 @@ const CheckIn = () => {
 
                     <td className="px-6 py-4 text-right">
                       <button
-                        onClick={() => handleCheckIn(res)}
+                        onClick={() => openConfirm(res)}
                         className="inline-flex items-center gap-2 px-4 py-2 text-white rounded-lg font-semibold hover:opacity-90 transition"
                         style={{ backgroundColor: THEME }}
                       >
@@ -240,7 +288,6 @@ const CheckIn = () => {
           </table>
         </div>
 
-        {/* Mobile */}
         <div className="md:hidden">
           {loading ? (
             <div className="text-center py-16 px-4">
@@ -277,7 +324,7 @@ const CheckIn = () => {
                   </div>
 
                   <button
-                    onClick={() => handleCheckIn(res)}
+                    onClick={() => openConfirm(res)}
                     className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-white rounded-lg font-semibold hover:opacity-90 transition"
                     style={{ backgroundColor: THEME }}
                   >
@@ -290,6 +337,21 @@ const CheckIn = () => {
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        open={confirmOpen}
+        title="Confirm Check-In"
+        description={
+          selected
+            ? `Check-in ${selected.guestName} (Booking: ${selected.bookingId}) for Room #${selected.roomNumber}?`
+            : ""
+        }
+        confirmText="Yes, Check In"
+        cancelText="No"
+        loading={actionLoading}
+        onClose={closeConfirm}
+        onConfirm={confirmCheckIn}
+      />
     </div>
   );
 };

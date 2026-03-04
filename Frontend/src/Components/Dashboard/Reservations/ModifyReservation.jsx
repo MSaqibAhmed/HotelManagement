@@ -5,12 +5,9 @@ import api from "../../../api";
 
 const THEME = "#d6c3b3";
 
-// ✅ backend enum
 const ROOM_TYPES = ["Standard", "Deluxe", "Executive", "Family"];
-const PAYMENT_METHODS = ["Cash", "Online"];
 const STATUS_OPTIONS = ["Pending", "Confirmed", "Checked-In", "Checked-Out", "Cancelled"];
 
-// ✅ role helper
 const getUserFromStorage = () => {
   try {
     return JSON.parse(localStorage.getItem("user") || "{}");
@@ -18,11 +15,11 @@ const getUserFromStorage = () => {
     return {};
   }
 };
+
 const isGuestRole = (role) => String(role || "").toLowerCase() === "guest";
 const isStaffRole = (role) =>
   ["admin", "manager", "receptionist"].includes(String(role || "").toLowerCase());
 
-// ✅ format yyyy-mm-dd for <input type="date">
 const toDateInput = (d) => {
   if (!d) return "";
   const dt = new Date(d);
@@ -62,15 +59,12 @@ const normalizeFromBackend = (r) => {
     roomName,
     checkInDate,
     checkOutDate,
-    status: r?.bookingStatus || "Confirmed",
+    status: r?.bookingStatus || "Pending",
     nights: Number(r?.nights || 0),
-
-    // edit fields
     adults,
     children,
     paymentMethod,
     specialRequests: r?.specialRequests || "",
-
     amount,
     raw: r,
   };
@@ -80,12 +74,11 @@ const ModifyReservation = () => {
   const user = useMemo(() => getUserFromStorage(), []);
   const role = String(user?.role || "").toLowerCase();
 
-  const canSeeAll = isStaffRole(role); // admin/manager/receptionist
+  const canSeeAll = isStaffRole(role);
   const isGuest = isGuestRole(role);
 
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(false);
-
   const [searchTerm, setSearchTerm] = useState("");
 
   const [selectedReservation, setSelectedReservation] = useState(null);
@@ -95,15 +88,12 @@ const ModifyReservation = () => {
     try {
       setLoading(true);
 
-      // ✅ guest => /reservation/my , staff => /reservation
       const endpoint = canSeeAll ? "/reservation" : "/reservation/my";
       const { data } = await api.get(endpoint);
 
       const list = (data?.reservations || []).map(normalizeFromBackend);
 
-      // ✅ hide Checked-Out and Cancelled from "Modify" list
       const activeOnly = list.filter((r) => r.status !== "Cancelled" && r.status !== "Checked-Out");
-
       setReservations(activeOnly);
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to fetch reservations");
@@ -133,29 +123,24 @@ const ModifyReservation = () => {
   }, [reservations, searchTerm]);
 
   const handleEdit = (reservation) => {
+    if (!isGuest) return;
     setSelectedReservation({ ...reservation });
     setShowEditForm(true);
   };
 
-  // ✅ Cancel via backend
   const handleCancel = async (reservation) => {
     const ok = window.confirm(`Cancel booking ${reservation.bookingId}?`);
     if (!ok) return;
 
     try {
-      await api.patch(`/reservation/${reservation._id}/cancel`, { reason: "Cancelled" });
+      await api.patch(`/reservation/${reservation._id}/cancel`, { reason: "Cancelled by guest" });
       toast.success("Reservation cancelled successfully");
-      setReservations((prev) => prev.map((r) => (r._id === reservation._id ? { ...r, status: "Cancelled" } : r)));
-      // also remove from active list UI
-      setReservations((prev) => prev.filter((r) => r._id !== reservation._id));
+      await fetchReservations();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to cancel reservation");
     }
   };
 
-  // ✅ Update via backend (requires your backend update route)
-  // If you DON'T have update route yet, add it:
-  // PUT /api/reservation/:id  (controller: updateReservation)
   const handleUpdate = async (updated) => {
     try {
       setLoading(true);
@@ -169,14 +154,9 @@ const ModifyReservation = () => {
         specialRequests: updated.specialRequests,
       };
 
-      // ✅ staff only can change status (optional)
-      if (canSeeAll) payload.bookingStatus = updated.status;
-
       const { data } = await api.put(`/reservation/${updated._id}`, payload);
 
       toast.success(data?.message || "Reservation updated successfully");
-
-      // refresh list (best)
       await fetchReservations();
 
       setShowEditForm(false);
@@ -193,9 +173,7 @@ const ModifyReservation = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#1e266d]">Modify / Cancel Reservation</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {canSeeAll ? "Edit or cancel any booking" : "Edit or cancel your booking"}
-          </p>
+          <p className="text-sm text-gray-500 mt-1">Guest can modify/cancel own booking only</p>
         </div>
       </div>
 
@@ -205,7 +183,7 @@ const ModifyReservation = () => {
             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by guest, booking #, room type, room number..."
+              placeholder="Search by booking #, room type, room number..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none bg-gray-50"
@@ -229,7 +207,6 @@ const ModifyReservation = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Booking</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Guest</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Room</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Dates</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
@@ -241,7 +218,7 @@ const ModifyReservation = () => {
                 <tbody className="divide-y divide-gray-200">
                   {filteredReservations.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="text-center py-16">
+                      <td colSpan="6" className="text-center py-16">
                         <p className="text-gray-500 font-medium">No reservations found</p>
                       </td>
                     </tr>
@@ -250,18 +227,7 @@ const ModifyReservation = () => {
                       <tr key={res._id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
                           <p className="font-semibold text-gray-800">{res.bookingId}</p>
-                        </td>
-
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-[#1e266d] to-[#1e1e1e] rounded-full flex items-center justify-center text-white font-semibold">
-                              {(res.guestName?.charAt(0) || "G").toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-800">{res.guestName}</p>
-                              <p className="text-xs text-gray-500">{res.guestEmail}</p>
-                            </div>
-                          </div>
+                          <p className="text-xs text-gray-500">{res.guestEmail}</p>
                         </td>
 
                         <td className="px-6 py-4">
@@ -280,10 +246,11 @@ const ModifyReservation = () => {
 
                         <td className="px-6 py-4">
                           <span
-                            className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${res.status === "Confirmed"
+                            className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
+                              res.status === "Confirmed"
                                 ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
                                 : "bg-amber-50 text-amber-600 border border-amber-200"
-                              }`}
+                            }`}
                           >
                             {res.status}
                           </span>
@@ -297,11 +264,17 @@ const ModifyReservation = () => {
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => handleEdit(res)}
-                              className="p-2 text-gray-500 hover:text-[#1e266d] hover:bg-[#1e266d]/10 rounded-lg"
-                              title="Edit"
+                              disabled={!isGuest}
+                              className={`p-2 rounded-lg ${
+                                isGuest
+                                  ? "text-gray-500 hover:text-[#1e266d] hover:bg-[#1e266d]/10"
+                                  : "text-gray-300 cursor-not-allowed"
+                              }`}
+                              title={isGuest ? "Edit" : "Only guest can edit here"}
                             >
                               <FaEdit className="w-4 h-4" />
                             </button>
+
                             <button
                               onClick={() => handleCancel(res)}
                               className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
@@ -328,20 +301,16 @@ const ModifyReservation = () => {
                   {filteredReservations.map((res) => (
                     <div key={res._id} className="p-4 space-y-3">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-[#1e266d] to-[#1e1e1e] rounded-full flex items-center justify-center text-white font-semibold">
-                            {(res.guestName?.charAt(0) || "G").toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-medium text-gray-800 truncate">{res.guestName}</p>
-                            <p className="text-xs text-gray-500">{res.bookingId}</p>
-                          </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-gray-800 truncate">{res.bookingId}</p>
+                          <p className="text-xs text-gray-500 truncate">{res.roomType}</p>
                         </div>
                         <span
-                          className={`inline-flex px-3 py-1 rounded-full text-xs font-medium shrink-0 ${res.status === "Confirmed"
+                          className={`inline-flex px-3 py-1 rounded-full text-xs font-medium shrink-0 ${
+                            res.status === "Confirmed"
                               ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
                               : "bg-amber-50 text-amber-600 border border-amber-200"
-                            }`}
+                          }`}
                         >
                           {res.status}
                         </span>
@@ -351,7 +320,7 @@ const ModifyReservation = () => {
                         <div>
                           <p className="text-gray-400 text-xs mb-1">Room</p>
                           <p className="text-gray-700">
-                            {res.roomType} {res.roomNumber ? `• #${res.roomNumber}` : ""}
+                            {res.roomName ? `${res.roomName} • ` : ""}#{res.roomNumber}
                           </p>
                         </div>
                         <div>
@@ -371,7 +340,12 @@ const ModifyReservation = () => {
                       <div className="flex gap-2 pt-2 border-t border-gray-100">
                         <button
                           onClick={() => handleEdit(res)}
-                          className="flex-1 px-3 py-2 text-xs font-medium text-gray-600 bg-gray-50 rounded-lg hover:bg-gray-100"
+                          disabled={!isGuest}
+                          className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg ${
+                            isGuest
+                              ? "text-gray-600 bg-gray-50 hover:bg-gray-100"
+                              : "text-gray-300 bg-gray-50 cursor-not-allowed"
+                          }`}
                         >
                           Edit
                         </button>
@@ -391,10 +365,8 @@ const ModifyReservation = () => {
         )}
       </div>
 
-      {showEditForm && selectedReservation && (
+      {showEditForm && selectedReservation && isGuest && (
         <EditForm
-          role={role}
-          canSeeAll={canSeeAll}
           reservation={selectedReservation}
           onClose={() => {
             setShowEditForm(false);
@@ -407,7 +379,7 @@ const ModifyReservation = () => {
   );
 };
 
-const EditForm = ({ reservation, onClose, onUpdate, canSeeAll }) => {
+const EditForm = ({ reservation, onClose, onUpdate }) => {
   const [formData, setFormData] = useState({
     roomType: reservation.roomType || "",
     checkInDate: toDateInput(reservation.checkInDate),
@@ -415,7 +387,6 @@ const EditForm = ({ reservation, onClose, onUpdate, canSeeAll }) => {
     adults: reservation.adults || 1,
     children: reservation.children || 0,
     specialRequests: reservation.specialRequests || "",
-    status: reservation.status || "Confirmed", // staff only
   });
 
   const [errors, setErrors] = useState({});
@@ -425,6 +396,16 @@ const EditForm = ({ reservation, onClose, onUpdate, canSeeAll }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    if (name === "adults" || name === "children") {
+      let n = Number(value || 0);
+      if (name === "adults") n = Math.max(1, Math.min(10, n));
+      if (name === "children") n = Math.max(0, Math.min(10, n));
+      setFormData((p) => ({ ...p, [name]: n }));
+      setErrors((p) => ({ ...p, [name]: "" }));
+      return;
+    }
+
     setFormData((p) => ({ ...p, [name]: value }));
     setErrors((p) => ({ ...p, [name]: "" }));
   };
@@ -459,7 +440,6 @@ const EditForm = ({ reservation, onClose, onUpdate, canSeeAll }) => {
         adults: Number(formData.adults || 1),
         children: Number(formData.children || 0),
         specialRequests: formData.specialRequests,
-        status: formData.status,
       });
     } finally {
       setLoading(false);
@@ -467,13 +447,14 @@ const EditForm = ({ reservation, onClose, onUpdate, canSeeAll }) => {
   };
 
   const inputClass = (field) =>
-    `w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none transition ${errors[field] ? "border-red-500" : "border-gray-200"
+    `w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none transition ${
+      errors[field] ? "border-red-500" : "border-gray-200"
     }`;
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
       <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl p-6 max-h-[90vh] overflow-y-auto">
-        <h2 className="text-2xl font-bold text-[#1e266d] mb-6">Edit Reservation</h2>
+        <h2 className="text-2xl font-bold text-[#1e266d] mb-6">Modify Reservation</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -550,24 +531,6 @@ const EditForm = ({ reservation, onClose, onUpdate, canSeeAll }) => {
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none"
               />
             </div>
-
-            {canSeeAll && (
-              <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Status</label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none bg-white"
-                >
-                  {STATUS_OPTIONS.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
           </div>
 
           <div>

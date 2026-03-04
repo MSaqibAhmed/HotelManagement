@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { FaPlus, FaSearch, FaEye, FaEdit, FaTrash } from "react-icons/fa";
 import { toast } from "react-toastify";
@@ -43,7 +43,6 @@ const ReservationsList = () => {
   const [selectedReservation, setSelectedReservation] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
 
-  // ✅ Staff edit modal only
   const [editOpen, setEditOpen] = useState(false);
   const [editRow, setEditRow] = useState(null);
 
@@ -52,11 +51,8 @@ const ReservationsList = () => {
   const fetchReservations = async () => {
     try {
       setLoading(true);
-
-      // ✅ staff: all, guest: my only
       const endpoint = isGuest(role) ? "/reservation/my" : "/reservation";
       const { data } = await api.get(endpoint);
-
       setReservations(data?.reservations || []);
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to fetch reservations");
@@ -88,7 +84,6 @@ const ReservationsList = () => {
     }
   };
 
-  // ✅ Normalize backend reservation -> UI
   const normalized = useMemo(() => {
     return (reservations || []).map((r) => {
       const guestName = r?.guestSnapshot?.name || r?.guest?.name || "Guest";
@@ -110,7 +105,7 @@ const ReservationsList = () => {
       const children = Number(r?.guestsCount?.children || 0);
       const guestsText = `${adults} Adult${adults > 1 ? "s" : ""}${children ? `, ${children} Child` : ""}`;
 
-      const status = r?.bookingStatus || "Confirmed";
+      const status = r?.bookingStatus || "Pending";
 
       return {
         _id: r?._id,
@@ -145,7 +140,6 @@ const ReservationsList = () => {
         r.roomName?.toLowerCase().includes(q);
 
       const matchesStatus = statusFilter === "All" || r.status === statusFilter;
-
       return matchesSearch && matchesStatus;
     });
   }, [normalized, searchTerm, statusFilter]);
@@ -167,9 +161,7 @@ const ReservationsList = () => {
 
       toast.success("Reservation cancelled successfully");
 
-      setReservations((prev) =>
-        prev.map((r) => (r._id === reservation._id ? { ...r, bookingStatus: "Cancelled" } : r))
-      );
+      await fetchReservations(); // ✅ always sync with backend
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to cancel reservation");
     }
@@ -180,7 +172,6 @@ const ReservationsList = () => {
     setShowDetails(true);
   };
 
-  // ✅ Staff edit only
   const openEdit = (reservation) => {
     if (!isStaff(role)) return;
 
@@ -195,13 +186,12 @@ const ReservationsList = () => {
       children: Number(rr?.guestsCount?.children || 0),
       specialRequests: rr?.specialRequests || "",
     });
+
     setEditOpen(true);
   };
 
   const onSaved = async () => {
-    await fetchReservations();
-    setEditOpen(false);
-    setEditRow(null);
+    await fetchReservations(); // ✅ only refresh
   };
 
   return (
@@ -212,13 +202,10 @@ const ReservationsList = () => {
             {isGuest(role) ? "My Reservations" : "All Reservations"}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            {isGuest(role)
-              ? "View your booking status and cancel if needed"
-              : "Manage hotel bookings"}
+            {isGuest(role) ? "View your booking status and cancel if needed" : "Manage hotel bookings"}
           </p>
         </div>
 
-        {/* ✅ Only staff can create */}
         {isStaff(role) && (
           <Link
             to="/dashboard/reservations/create"
@@ -339,9 +326,7 @@ const ReservationsList = () => {
                         </td>
 
                         <td className="px-6 py-4">
-                          <p className="font-semibold text-gray-800">
-                            Rs {Number(res.amount || 0).toLocaleString()}
-                          </p>
+                          <p className="font-semibold text-gray-800">Rs {Number(res.amount || 0).toLocaleString()}</p>
                         </td>
 
                         <td className="px-6 py-4">
@@ -354,7 +339,6 @@ const ReservationsList = () => {
                               <FaEye className="w-4 h-4" />
                             </button>
 
-                            {/* ✅ Staff edit only */}
                             {isStaff(role) && (
                               <button
                                 onClick={() => openEdit(res)}
@@ -365,7 +349,6 @@ const ReservationsList = () => {
                               </button>
                             )}
 
-                            {/* ✅ Cancel allowed for both (guest own list already) */}
                             {res.status !== "Cancelled" && res.status !== "Checked-Out" && (
                               <button
                                 onClick={() => handleCancel(res)}
@@ -384,7 +367,6 @@ const ReservationsList = () => {
               </table>
             </div>
 
-            {/* Mobile */}
             <div className="lg:hidden">
               {paginatedReservations.length === 0 ? (
                 <div className="text-center py-16 px-4">
@@ -483,8 +465,9 @@ const ReservationsList = () => {
                     <button
                       key={page}
                       onClick={() => setCurrentPage(page)}
-                      className={`px-3 py-1.5 text-sm font-medium rounded-lg ${currentPage === page ? "bg-[#1e1e1e] text-white" : "border border-gray-200 hover:bg-gray-50"
-                        }`}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-lg ${
+                        currentPage === page ? "bg-[#1e1e1e] text-white" : "border border-gray-200 hover:bg-gray-50"
+                      }`}
                     >
                       {page}
                     </button>
@@ -504,7 +487,6 @@ const ReservationsList = () => {
         )}
       </div>
 
-      {/* Details Modal */}
       {showDetails && selectedReservation && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl p-6 max-h-[90vh] overflow-y-auto">
@@ -524,7 +506,11 @@ const ReservationsList = () => {
 
                 <div>
                   <p className="text-xs text-gray-500 uppercase font-semibold">Status</p>
-                  <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${getStatusStyle(selectedReservation.status)}`}>
+                  <span
+                    className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${getStatusStyle(
+                      selectedReservation.status
+                    )}`}
+                  >
                     {selectedReservation.status}
                   </span>
                 </div>
@@ -538,7 +524,8 @@ const ReservationsList = () => {
                 <div>
                   <p className="text-xs text-gray-500 uppercase font-semibold">Room</p>
                   <p className="font-medium text-gray-800">
-                    {selectedReservation.roomType} • {selectedReservation.roomName ? `${selectedReservation.roomName} • ` : ""}#{selectedReservation.roomNumber}
+                    {selectedReservation.roomType} •{" "}
+                    {selectedReservation.roomName ? `${selectedReservation.roomName} • ` : ""}#{selectedReservation.roomNumber}
                   </p>
                 </div>
 
@@ -578,15 +565,20 @@ const ReservationsList = () => {
         </div>
       )}
 
-      {/* ✅ Staff Edit Modal */}
       {editOpen && editRow && isStaff(role) && (
-        <StaffEditModal value={editRow} onClose={() => setEditOpen(false)} onSaved={onSaved} />
+        <StaffEditModal
+          value={editRow}
+          onClose={() => {
+            setEditOpen(false);
+            setEditRow(null);
+          }}
+          onSaved={onSaved}
+        />
       )}
     </div>
   );
 };
 
-// ✅ Staff-only edit modal (PUT /reservation/:id)
 const StaffEditModal = ({ value, onClose, onSaved }) => {
   const [form, setForm] = useState({ ...value });
   const [saving, setSaving] = useState(false);
@@ -647,7 +639,9 @@ const StaffEditModal = ({ value, onClose, onSaved }) => {
             <h2 className="text-2xl font-bold text-[#1e266d]">Edit Reservation</h2>
             <p className="text-sm text-gray-500 mt-1">Booking: {form.bookingId}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">
+            ×
+          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

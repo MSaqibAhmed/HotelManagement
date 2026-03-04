@@ -1,10 +1,9 @@
-// Controllers/reservationController.js  (COMPLETE + CLEAN + NO RECEIPT)
-// ✅ Includes: preview, create, my/all, single, update, cancel, checkin, checkout
 import Reservation from "../Models/reservationModel.js";
 import Room from "../Models/roomModel.js";
 import User from "../Models/userModel.js";
 
-// ---------- helpers ----------
+const EXTRA_PERSON_CHARGE_PER_NIGHT = 500;
+
 const overlapQuery = (checkInDate, checkOutDate) => ({
   checkInDate: { $lt: new Date(checkOutDate) },
   checkOutDate: { $gt: new Date(checkInDate) },
@@ -13,13 +12,8 @@ const overlapQuery = (checkInDate, checkOutDate) => ({
 const parseDates = (checkInDate, checkOutDate) => {
   const inDate = new Date(checkInDate);
   const outDate = new Date(checkOutDate);
-
-  if (isNaN(inDate.getTime()) || isNaN(outDate.getTime())) {
-    return { ok: false, message: "Invalid check-in/check-out date" };
-  }
-  if (inDate >= outDate) {
-    return { ok: false, message: "checkOutDate must be after checkInDate" };
-  }
+  if (Number.isNaN(inDate.getTime()) || Number.isNaN(outDate.getTime())) return { ok: false, message: "Invalid check-in/check-out date" };
+  if (inDate >= outDate) return { ok: false, message: "checkOutDate must be after checkInDate" };
   return { ok: true, inDate, outDate };
 };
 
@@ -30,50 +24,66 @@ const calcNights = (inDate, outDate) => {
 
 const ensureAuth = (req, res) => {
   if (!req.user || !req.user._id) {
-    res.status(401).json({ message: "Unauthorized: token missing/invalid" });
+    res.status(401).json({ message: "Unauthorized" });
     return false;
   }
   return true;
 };
 
-const isStaff = (role) =>
-  ["admin", "manager", "receptionist"].includes(String(role || "").toLowerCase());
+const isStaff = (role) => ["admin", "manager", "receptionist"].includes(String(role || "").toLowerCase());
 
 const pickAvailableRoom = async ({ roomType, inDate, outDate, excludeReservationId = null }) => {
+  const rt = String(roomType || "").trim();
   const match = {
-    roomType: roomType.trim(),
+    roomType: rt,
     bookingStatus: { $in: ["Pending", "Confirmed", "Checked-In"] },
     ...overlapQuery(inDate, outDate),
   };
-
-  if (excludeReservationId) {
-    match._id = { $ne: excludeReservationId };
-  }
+  if (excludeReservationId) match._id = { $ne: excludeReservationId };
 
   const booked = await Reservation.find(match).select("room");
   const bookedRoomIds = booked.map((r) => r.room);
 
   return Room.findOne({
-    roomType: roomType.trim(),
+    roomType: rt,
     isActive: true,
     status: "Available",
     _id: { $nin: bookedRoomIds },
   }).sort({ createdAt: 1 });
 };
 
-// ---------- controllers ----------
+const sanitizeCounts = (adults, children) => {
+  const a = Math.max(1, Number(adults || 1));
+  const c = Math.max(0, Number(children || 0));
+  return { adults: a, children: c };
+};
 
-// ✅ Preview
+const computeAmount = ({ room, nights, adults, children }) => {
+  const basePrice = Number(room?.pricing?.basePrice || 0);
+  const baseAmount = basePrice * nights;
+
+  const capacity = Number(room?.capacity || 1);
+  const totalPersons = Number(adults || 1) + Number(children || 0);
+  const extraPersons = Math.max(0, totalPersons - capacity);
+  const extraCharge = extraPersons * EXTRA_PERSON_CHARGE_PER_NIGHT * nights;
+
+  return {
+    basePrice,
+    capacity,
+    totalPersons,
+    extraPersons,
+    extraCharge,
+    amount: Number(baseAmount + extraCharge),
+  };
+};
+
 export const previewReservation = async (req, res) => {
   try {
     if (!ensureAuth(req, res)) return;
 
-    const { roomType, checkInDate, checkOutDate } = req.query;
-
+    const { roomType, checkInDate, checkOutDate, adults = 1, children = 0 } = req.query;
     if (!roomType || !checkInDate || !checkOutDate) {
-      return res.status(400).json({
-        message: "roomType, checkInDate, checkOutDate are required",
-      });
+      return res.status(400).json({ message: "roomType, checkInDate, checkOutDate are required" });
     }
 
     const d = parseDates(checkInDate, checkOutDate);
@@ -83,8 +93,8 @@ export const previewReservation = async (req, res) => {
     if (!room) return res.status(400).json({ message: "No available room found" });
 
     const nights = calcNights(d.inDate, d.outDate);
-    const basePrice = Number(room?.pricing?.basePrice || 0);
-    const amount = basePrice * nights;
+    const counts = sanitizeCounts(adults, children);
+    const pricing = computeAmount({ room, nights, adults: counts.adults, children: counts.children });
 
     return res.json({
       selectedRoom: {
@@ -92,99 +102,96 @@ export const previewReservation = async (req, res) => {
         roomNumber: room.roomNumber,
         roomName: room.roomName,
         roomType: room.roomType,
-        basePrice,
+        capacity: pricing.capacity,
+        basePrice: pricing.basePrice,
       },
       nights,
-      amount,
+      totalPersons: pricing.totalPersons,
+      extraPersons: pricing.extraPersons,
+      extraCharge: pricing.extraCharge,
+      amount: pricing.amount,
     });
   } catch (error) {
-    console.log("PREVIEW RESERVATION ERROR:", error);
     return res.status(500).json({ message: "Preview failed", error: error.message });
   }
 };
 
-// ✅ Create (auto room + fixed amount)
 export const createReservation = async (req, res) => {
   try {
     if (!ensureAuth(req, res)) return;
 
     const {
-      guestId, // staff only
+      guestId,
+      guestEmail,
       roomType,
       checkInDate,
       checkOutDate,
-      paymentMethod, // Cash | Online
+      paymentMethod,
       adults = 1,
       children = 0,
       specialRequests = "",
     } = req.body;
 
     if (!roomType || !checkInDate || !checkOutDate || !paymentMethod) {
-      return res.status(400).json({
-        message: "roomType, checkInDate, checkOutDate, paymentMethod are required",
-      });
+      return res.status(400).json({ message: "roomType, checkInDate, checkOutDate, paymentMethod are required" });
     }
 
     if (!["Cash", "Online"].includes(paymentMethod)) {
-      return res.status(400).json({ message: "Invalid paymentMethod (Cash/Online)" });
+      return res.status(400).json({ message: "Invalid paymentMethod" });
     }
 
     const d = parseDates(checkInDate, checkOutDate);
     if (!d.ok) return res.status(400).json({ message: d.message });
 
-    // guest decide
     let finalGuestId = req.user._id;
-    if (req.user.role !== "guest") {
-      if (!guestId) return res.status(400).json({ message: "guestId is required for staff booking" });
-      finalGuestId = guestId;
+
+    if (String(req.user.role).toLowerCase() !== "guest") {
+      if (guestId) {
+        finalGuestId = guestId;
+      } else if (guestEmail) {
+        const g = await User.findOne({ email: String(guestEmail).toLowerCase().trim() }).select("-password");
+        if (!g) return res.status(404).json({ message: "Guest not found. Guest must register first." });
+        finalGuestId = g._id;
+      } else {
+        return res.status(400).json({ message: "guestId or guestEmail is required for staff booking" });
+      }
     }
 
     const guest = await User.findById(finalGuestId).select("-password");
     if (!guest) return res.status(404).json({ message: "Guest not found" });
     if (!guest.isActive) return res.status(403).json({ message: "Guest account deactivated" });
 
-    // room auto
     const room = await pickAvailableRoom({ roomType, inDate: d.inDate, outDate: d.outDate });
     if (!room) return res.status(400).json({ message: "No available room found for selected dates/type" });
 
-    // amount
     const nights = calcNights(d.inDate, d.outDate);
-    const basePrice = Number(room?.pricing?.basePrice || 0);
-    const amount = basePrice * nights;
+    const counts = sanitizeCounts(adults, children);
+    const pricing = computeAmount({ room, nights, adults: counts.adults, children: counts.children });
 
     const reservation = await Reservation.create({
       guest: guest._id,
-      guestSnapshot: {
-        name: guest.name || "",
-        email: guest.email || "",
-        phone: guest.phone || "",
-      },
-
-      roomType: roomType.trim(),
+      guestSnapshot: { name: guest.name || "", email: guest.email || "", phone: guest.phone || "" },
+      roomType: String(roomType).trim(),
       room: room._id,
       roomSnapshot: {
         roomNumber: room.roomNumber || "",
         roomName: room.roomName || "",
-        basePrice,
+        basePrice: pricing.basePrice,
       },
-
       checkInDate: d.inDate,
       checkOutDate: d.outDate,
       nights,
-
-      bookingStatus: "Confirmed",
-
+      bookingStatus: "Pending",
       payment: {
         method: paymentMethod,
         status: "Pending",
-        amount,
+        amount: pricing.amount,
         receipt: { url: "", public_id: "" },
         note: "",
         confirmedBy: null,
         confirmedAt: null,
       },
-
-      guestsCount: { adults: Number(adults || 1), children: Number(children || 0) },
+      guestsCount: { adults: counts.adults, children: counts.children },
       specialRequests: String(specialRequests || ""),
       createdBy: req.user._id,
     });
@@ -192,43 +199,39 @@ export const createReservation = async (req, res) => {
     return res.status(201).json({
       message: "Reservation created",
       reservation,
-      amount,
       selectedRoom: {
         _id: room._id,
         roomNumber: room.roomNumber,
         roomName: room.roomName,
         roomType: room.roomType,
-        basePrice,
+        capacity: pricing.capacity,
+        basePrice: pricing.basePrice,
       },
+      nights,
+      totalPersons: pricing.totalPersons,
+      extraPersons: pricing.extraPersons,
+      extraCharge: pricing.extraCharge,
+      amount: pricing.amount,
     });
   } catch (error) {
-    console.log("CREATE RESERVATION ERROR:", error);
-
-    if (error?.name === "ValidationError") {
-      return res.status(400).json({ message: error.message });
-    }
-
     return res.status(500).json({ message: "Reservation creation failed", error: error.message });
   }
 };
 
-// ✅ Guest: my
 export const getMyReservations = async (req, res) => {
   try {
     if (!ensureAuth(req, res)) return;
 
     const reservations = await Reservation.find({ guest: req.user._id })
-      .populate("room", "roomNumber roomName roomType pricing status")
+      .populate("room", "roomNumber roomName roomType pricing status capacity")
       .sort({ createdAt: -1 });
 
     return res.json({ count: reservations.length, reservations });
   } catch (error) {
-    console.log("GET MY RESERVATIONS ERROR:", error);
     return res.status(500).json({ message: "Failed to fetch my reservations", error: error.message });
   }
 };
 
-// ✅ Staff: all (filters)
 export const getAllReservations = async (req, res) => {
   try {
     if (!ensureAuth(req, res)) return;
@@ -250,68 +253,54 @@ export const getAllReservations = async (req, res) => {
 
     const reservations = await Reservation.find(filter)
       .populate("guest", "name email phone role")
-      .populate("room", "roomNumber roomName roomType pricing status")
+      .populate("room", "roomNumber roomName roomType pricing status capacity")
       .sort({ createdAt: -1 });
 
     return res.json({ count: reservations.length, reservations });
   } catch (error) {
-    console.log("GET ALL RESERVATIONS ERROR:", error);
     return res.status(500).json({ message: "Failed to fetch reservations", error: error.message });
   }
 };
 
-// ✅ Single (guest only own)
 export const getReservationById = async (req, res) => {
   try {
     if (!ensureAuth(req, res)) return;
 
     const reservation = await Reservation.findById(req.params.id)
       .populate("guest", "name email phone role")
-      .populate("room", "roomNumber roomName roomType pricing status");
+      .populate("room", "roomNumber roomName roomType pricing status capacity");
 
     if (!reservation) return res.status(404).json({ message: "Reservation not found" });
 
-    if (req.user.role === "guest" && String(reservation.guest?._id) !== String(req.user._id)) {
+    if (String(req.user.role).toLowerCase() === "guest" && String(reservation.guest?._id) !== String(req.user._id)) {
       return res.status(403).json({ message: "Access denied" });
     }
 
     return res.json({ reservation });
   } catch (error) {
-    console.log("GET RESERVATION BY ID ERROR:", error);
     return res.status(500).json({ message: "Failed to fetch reservation", error: error.message });
   }
 };
 
-// ✅ UPDATE (guest = own, staff = any) + auto reassign room if roomType/dates changed
 export const updateReservation = async (req, res) => {
   try {
     if (!ensureAuth(req, res)) return;
 
     const { id } = req.params;
-    const {
-      roomType,
-      checkInDate,
-      checkOutDate,
-      adults,
-      children,
-      specialRequests,
-      bookingStatus, // staff optional
-    } = req.body;
+    const { roomType, checkInDate, checkOutDate, adults, children, specialRequests, bookingStatus } = req.body;
 
     const reservation = await Reservation.findById(id);
     if (!reservation) return res.status(404).json({ message: "Reservation not found" });
 
-    // guest only own
-    if (req.user.role === "guest" && String(reservation.guest) !== String(req.user._id)) {
+    if (String(req.user.role).toLowerCase() === "guest" && String(reservation.guest) !== String(req.user._id)) {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    // not editable
     if (["Checked-In", "Checked-Out", "Cancelled"].includes(reservation.bookingStatus)) {
       return res.status(400).json({ message: `Cannot update. Current status: ${reservation.bookingStatus}` });
     }
 
-    const newRoomType = (roomType || reservation.roomType).trim();
+    const newRoomType = String(roomType || reservation.roomType).trim();
     const newCheckIn = checkInDate || reservation.checkInDate;
     const newCheckOut = checkOutDate || reservation.checkOutDate;
 
@@ -333,19 +322,19 @@ export const updateReservation = async (req, res) => {
         outDate: d.outDate,
         excludeReservationId: reservation._id,
       });
-
-      if (!roomDoc) {
-        return res.status(400).json({ message: "No available room found for updated dates/type" });
-      }
-
+      if (!roomDoc) return res.status(400).json({ message: "No available room found for updated dates/type" });
       finalRoomId = roomDoc._id;
     } else {
       roomDoc = await Room.findById(finalRoomId);
+      if (!roomDoc) return res.status(404).json({ message: "Room not found" });
     }
 
+    const prevAdults = Number(reservation.guestsCount?.adults || 1);
+    const prevChildren = Number(reservation.guestsCount?.children || 0);
+
+    const counts = sanitizeCounts(adults !== undefined ? adults : prevAdults, children !== undefined ? children : prevChildren);
     const nights = calcNights(d.inDate, d.outDate);
-    const basePrice = Number(roomDoc?.pricing?.basePrice || reservation.roomSnapshot?.basePrice || 0);
-    const amount = basePrice * nights;
+    const pricing = computeAmount({ room: roomDoc, nights, adults: counts.adults, children: counts.children });
 
     reservation.roomType = newRoomType;
     reservation.room = finalRoomId;
@@ -354,34 +343,36 @@ export const updateReservation = async (req, res) => {
     reservation.nights = nights;
 
     reservation.roomSnapshot = {
-      roomNumber: roomDoc?.roomNumber || reservation.roomSnapshot?.roomNumber || "",
-      roomName: roomDoc?.roomName || reservation.roomSnapshot?.roomName || "",
-      basePrice,
+      roomNumber: roomDoc.roomNumber || "",
+      roomName: roomDoc.roomName || "",
+      basePrice: pricing.basePrice,
     };
 
-    // fixed amount
-    reservation.payment.amount = amount;
+    reservation.payment.amount = pricing.amount;
+    reservation.guestsCount.adults = counts.adults;
+    reservation.guestsCount.children = counts.children;
 
-    if (adults !== undefined) reservation.guestsCount.adults = Number(adults || 1);
-    if (children !== undefined) reservation.guestsCount.children = Number(children || 0);
     if (specialRequests !== undefined) reservation.specialRequests = String(specialRequests || "");
 
-    // staff can change bookingStatus (optional)
     if (isStaff(req.user.role) && bookingStatus) {
-      const allowed = ["Pending", "Confirmed", "Cancelled"];
-      if (allowed.includes(bookingStatus)) reservation.bookingStatus = bookingStatus;
+      if (["Pending", "Confirmed", "Cancelled"].includes(bookingStatus)) reservation.bookingStatus = bookingStatus;
     }
 
     await reservation.save();
 
-    return res.json({ message: "Reservation updated successfully", reservation });
+    return res.json({
+      message: "Reservation updated successfully",
+      reservation,
+      totalPersons: pricing.totalPersons,
+      extraPersons: pricing.extraPersons,
+      extraCharge: pricing.extraCharge,
+      amount: pricing.amount,
+    });
   } catch (error) {
-    console.log("UPDATE RESERVATION ERROR:", error);
     return res.status(500).json({ message: "Update failed", error: error.message });
   }
 };
 
-// ✅ Cancel
 export const cancelReservation = async (req, res) => {
   try {
     if (!ensureAuth(req, res)) return;
@@ -391,7 +382,7 @@ export const cancelReservation = async (req, res) => {
     const reservation = await Reservation.findById(req.params.id);
     if (!reservation) return res.status(404).json({ message: "Reservation not found" });
 
-    if (req.user.role === "guest" && String(reservation.guest) !== String(req.user._id)) {
+    if (String(req.user.role).toLowerCase() === "guest" && String(reservation.guest) !== String(req.user._id)) {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -407,12 +398,10 @@ export const cancelReservation = async (req, res) => {
 
     return res.json({ message: "Reservation cancelled", reservation });
   } catch (error) {
-    console.log("CANCEL RESERVATION ERROR:", error);
     return res.status(500).json({ message: "Cancel failed", error: error.message });
   }
 };
 
-// ✅ Check-in
 export const checkInReservation = async (req, res) => {
   try {
     if (!ensureAuth(req, res)) return;
@@ -437,12 +426,10 @@ export const checkInReservation = async (req, res) => {
 
     return res.json({ message: "Checked-in successfully", reservation, room });
   } catch (error) {
-    console.log("CHECKIN ERROR:", error);
     return res.status(500).json({ message: "Check-in failed", error: error.message });
   }
 };
 
-// ✅ Check-out
 export const checkOutReservation = async (req, res) => {
   try {
     if (!ensureAuth(req, res)) return;
@@ -465,7 +452,6 @@ export const checkOutReservation = async (req, res) => {
 
     return res.json({ message: "Checked-out successfully", reservation, room });
   } catch (error) {
-    console.log("CHECKOUT ERROR:", error);
     return res.status(500).json({ message: "Check-out failed", error: error.message });
   }
 };

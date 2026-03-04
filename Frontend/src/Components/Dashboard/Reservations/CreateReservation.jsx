@@ -5,11 +5,9 @@ import api from "../../../api";
 
 const THEME = "#d6c3b3";
 
-// ✅ backend enum
 const ROOM_TYPES = ["Standard", "Deluxe", "Executive", "Family"];
 const PAYMENT_METHODS = ["Cash", "Online"];
 
-// ✅ local user (role)
 const getUserFromStorage = () => {
   try {
     return JSON.parse(localStorage.getItem("user") || "{}");
@@ -21,15 +19,14 @@ const getUserFromStorage = () => {
 const CreateReservation = () => {
   const navigate = useNavigate();
   const user = useMemo(() => getUserFromStorage(), []);
-  const role = (user?.role || "").toLowerCase();
+  const role = String(user?.role || "").toLowerCase();
   const isGuest = role === "guest";
+  const isStaff = ["admin", "manager", "receptionist"].includes(role);
 
   const [loading, setLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
 
-  // ✅ staff can create for guest using guestId (optional). For now keep simple.
   const [formData, setFormData] = useState({
-    // guest fields are only for UI; backend uses guestId for staff OR req.user for guest
     guestName: "",
     guestEmail: "",
     guestPhone: "",
@@ -47,16 +44,18 @@ const CreateReservation = () => {
 
   const [errors, setErrors] = useState({});
 
-  // ✅ preview result from backend
   const [preview, setPreview] = useState({
     roomNumber: "",
     roomName: "",
     basePrice: 0,
+    capacity: 0,
     nights: 0,
+    totalPersons: 0,
+    extraPersons: 0,
+    extraCharge: 0,
     amount: 0,
   });
 
-  // ---------- regex ----------
   const nameRegex = /^[A-Za-z\s]{3,}$/;
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
   const phoneRegex = /^[0-9]{10,15}$/;
@@ -73,7 +72,6 @@ const CreateReservation = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // clamp numbers
     if (name === "adults" || name === "children") {
       let num = value === "" ? "" : Number(value);
       if (num === "") {
@@ -82,14 +80,8 @@ const CreateReservation = () => {
         return;
       }
       if (Number.isNaN(num)) num = 0;
-      if (name === "adults") {
-        if (num < 1) num = 1;
-        if (num > 10) num = 10;
-      }
-      if (name === "children") {
-        if (num < 0) num = 0;
-        if (num > 10) num = 10;
-      }
+      if (name === "adults") num = Math.max(1, Math.min(10, num));
+      if (name === "children") num = Math.max(0, Math.min(10, num));
       setFormData((p) => ({ ...p, [name]: num }));
       clearFieldError(name);
       return;
@@ -102,8 +94,7 @@ const CreateReservation = () => {
   const validateRequired = () => {
     const newErrors = {};
 
-    // Guest can only book for self, so guest info is readonly display; still validate if you want:
-    if (!isGuest) {
+    if (isStaff) {
       if (!formData.guestName.trim()) newErrors.guestName = "Guest Name is required";
       if (!formData.guestEmail.trim()) newErrors.guestEmail = "Email is required";
       if (!formData.guestPhone.trim()) newErrors.guestPhone = "Phone is required";
@@ -119,7 +110,7 @@ const CreateReservation = () => {
   };
 
   const validateForm = () => {
-    if (!isGuest) {
+    if (isStaff) {
       if (!nameRegex.test(formData.guestName.trim())) {
         toast.error("Name must be at least 3 letters");
         return false;
@@ -156,32 +147,62 @@ const CreateReservation = () => {
     return true;
   };
 
-  // ✅ call backend preview when roomType/dates change
   useEffect(() => {
     const canPreview = formData.roomType && formData.checkInDate && formData.checkOutDate;
+
     if (!canPreview) {
-      setPreview({ roomNumber: "", roomName: "", basePrice: 0, nights: 0, amount: 0 });
+      setPreview({
+        roomNumber: "",
+        roomName: "",
+        basePrice: 0,
+        capacity: 0,
+        nights: 0,
+        totalPersons: 0,
+        extraPersons: 0,
+        extraCharge: 0,
+        amount: 0,
+      });
       return;
     }
 
     const run = async () => {
       try {
         setPreviewLoading(true);
-        const { data } = await api.get(
-          `/reservation/preview?roomType=${encodeURIComponent(formData.roomType)}&checkInDate=${encodeURIComponent(
-            formData.checkInDate
-          )}&checkOutDate=${encodeURIComponent(formData.checkOutDate)}`
-        );
+
+        const qs = new URLSearchParams({
+          roomType: formData.roomType,
+          checkInDate: formData.checkInDate,
+          checkOutDate: formData.checkOutDate,
+          adults: String(Number(formData.adults || 1)),
+          children: String(Number(formData.children || 0)),
+        });
+
+        const { data } = await api.get(`/reservation/preview?${qs.toString()}`);
 
         setPreview({
           roomNumber: data?.selectedRoom?.roomNumber || "",
           roomName: data?.selectedRoom?.roomName || "",
           basePrice: Number(data?.selectedRoom?.basePrice || 0),
+          capacity: Number(data?.selectedRoom?.capacity || 0),
           nights: Number(data?.nights || 0),
+          totalPersons: Number(data?.totalPersons || 0),
+          extraPersons: Number(data?.extraPersons || 0),
+          extraCharge: Number(data?.extraCharge || 0),
           amount: Number(data?.amount || 0),
         });
       } catch (err) {
-        setPreview({ roomNumber: "", roomName: "", basePrice: 0, nights: 0, amount: 0 });
+        setPreview({
+          roomNumber: "",
+          roomName: "",
+          basePrice: 0,
+          capacity: 0,
+          nights: 0,
+          totalPersons: 0,
+          extraPersons: 0,
+          extraCharge: 0,
+          amount: 0,
+        });
+
         const msg = err?.response?.data?.message || "No room available for selected dates";
         toast.error(msg);
       } finally {
@@ -191,7 +212,7 @@ const CreateReservation = () => {
 
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.roomType, formData.checkInDate, formData.checkOutDate]);
+  }, [formData.roomType, formData.checkInDate, formData.checkOutDate, formData.adults, formData.children]);
 
   const handleClear = () => {
     setFormData({
@@ -207,7 +228,17 @@ const CreateReservation = () => {
       specialRequests: "",
     });
     setErrors({});
-    setPreview({ roomNumber: "", roomName: "", basePrice: 0, nights: 0, amount: 0 });
+    setPreview({
+      roomNumber: "",
+      roomName: "",
+      basePrice: 0,
+      capacity: 0,
+      nights: 0,
+      totalPersons: 0,
+      extraPersons: 0,
+      extraCharge: 0,
+      amount: 0,
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -216,7 +247,6 @@ const CreateReservation = () => {
     if (!validateRequired()) return;
     if (!validateForm()) return;
 
-    // must have preview amount (means available room exists)
     if (!preview.amount || preview.amount <= 0 || !preview.roomNumber) {
       toast.error("No available room found. Please change dates or room type.");
       return;
@@ -225,8 +255,6 @@ const CreateReservation = () => {
     try {
       setLoading(true);
 
-      // ✅ backend expects:
-      // roomType, checkInDate, checkOutDate, paymentMethod, adults, children, specialRequests
       const payload = {
         roomType: formData.roomType,
         checkInDate: formData.checkInDate,
@@ -237,8 +265,10 @@ const CreateReservation = () => {
         specialRequests: formData.specialRequests,
       };
 
-      // NOTE: staff booking for specific guest requires guestId (backend)
-      // You can add guestId later when you build guest selector.
+      if (isStaff) {
+        payload.guestEmail = String(formData.guestEmail || "").toLowerCase().trim();
+      }
+
       const { data } = await api.post("/reservation/create", payload);
 
       toast.success(data?.message || "Reservation created successfully");
@@ -252,7 +282,9 @@ const CreateReservation = () => {
 
   const inputClass = (field) =>
     `w-full px-4 py-3 border rounded-xl outline-none transition ${
-      errors[field] ? "border-red-500 focus:ring-2 focus:ring-red-100" : "border-gray-200 focus:ring-2 focus:ring-[#1e266d]/15"
+      errors[field]
+        ? "border-red-500 focus:ring-2 focus:ring-red-100"
+        : "border-gray-200 focus:ring-2 focus:ring-[#1e266d]/15"
     }`;
 
   const errorText = (field) =>
@@ -282,8 +314,7 @@ const CreateReservation = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Guest Info (Only for staff UI - guest books self) */}
-            {!isGuest && (
+            {isStaff && (
               <div>
                 <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                   <span className="w-1 h-6 rounded-full" style={{ backgroundColor: THEME }} />
@@ -315,6 +346,7 @@ const CreateReservation = () => {
                       className={inputClass("guestEmail")}
                     />
                     {errorText("guestEmail")}
+                    <p className="text-[11px] text-gray-500 mt-2">Guest must be registered already (email match).</p>
                   </div>
 
                   <div>
@@ -333,7 +365,6 @@ const CreateReservation = () => {
               </div>
             )}
 
-            {/* Room + Dates */}
             <div>
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <span className="w-1 h-6 rounded-full" style={{ backgroundColor: THEME }} />
@@ -343,12 +374,7 @@ const CreateReservation = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Room Type *</label>
-                  <select
-                    name="roomType"
-                    value={formData.roomType}
-                    onChange={handleChange}
-                    className={inputClass("roomType")}
-                  >
+                  <select name="roomType" value={formData.roomType} onChange={handleChange} className={inputClass("roomType")}>
                     <option value="">Select Room Type</option>
                     {ROOM_TYPES.map((t) => (
                       <option key={t} value={t}>
@@ -403,28 +429,12 @@ const CreateReservation = () => {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Adults</label>
-                  <input
-                    type="number"
-                    name="adults"
-                    value={formData.adults}
-                    onChange={handleChange}
-                    min={1}
-                    max={10}
-                    className={inputClass("adults")}
-                  />
+                  <input type="number" name="adults" value={formData.adults} onChange={handleChange} min={1} max={10} className={inputClass("adults")} />
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Children</label>
-                  <input
-                    type="number"
-                    name="children"
-                    value={formData.children}
-                    onChange={handleChange}
-                    min={0}
-                    max={10}
-                    className={inputClass("children")}
-                  />
+                  <input type="number" name="children" value={formData.children} onChange={handleChange} min={0} max={10} className={inputClass("children")} />
                 </div>
 
                 <div>
@@ -445,18 +455,27 @@ const CreateReservation = () => {
                 </div>
 
                 <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                  <p className="text-xs text-gray-500 uppercase font-semibold">Fixed Amount</p>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Amount</p>
                   <p className="text-2xl font-black text-[#1e266d] mt-1">
                     {previewLoading ? "..." : `Rs ${Number(preview.amount || 0).toLocaleString()}`}
                   </p>
+
                   <p className="text-xs text-gray-500 mt-1">
-                    {preview.nights ? `${preview.nights} night(s) • Base Rs ${Number(preview.basePrice || 0).toLocaleString()}` : "Select room type + dates"}
+                    {preview.nights
+                      ? `${preview.nights} night(s) • Base Rs ${Number(preview.basePrice || 0).toLocaleString()}`
+                      : "Select room type + dates"}
                   </p>
+
+                  {!!preview.capacity && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Capacity: {preview.capacity} • Persons: {preview.totalPersons}
+                      {preview.extraPersons > 0 ? ` • Extra: ${preview.extraPersons} (+Rs ${Number(preview.extraCharge || 0).toLocaleString()})` : ""}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Special Requests */}
             <div>
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <span className="w-1 h-6 rounded-full" style={{ backgroundColor: THEME }} />
@@ -472,7 +491,6 @@ const CreateReservation = () => {
               />
             </div>
 
-            {/* Actions */}
             <div className="pt-2 flex flex-col sm:flex-row gap-3 sm:justify-end">
               <button
                 type="button"

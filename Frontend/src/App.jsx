@@ -21,6 +21,7 @@ import CheckIn from "./Components/Dashboard/Reservations/CheckIn";
 import CheckOut from "./Components/Dashboard/Reservations/CheckOut";
 
 import BillingOverview from "./Components/Dashboard/Billing/BillingOverview";
+import InvoiceDetail from "./Components/Dashboard/Billing/InvoiceDetail";
 import InvoicesList from "./Components/Dashboard/Billing/InvoicesList";
 import Payments from "./Components/Dashboard/Billing/Payments";
 
@@ -76,6 +77,7 @@ function App() {
 
           <Route path="billing" element={<BillingOverview />} />
           <Route path="billing/invoices" element={<InvoicesList />} />
+          <Route path="/dashboard/billing/invoices/:id" element={<InvoiceDetail />} />
           <Route path="billing/payments" element={<Payments />} />
 
           <Route path="guest/my-reservations" element={<MyReservations />} />

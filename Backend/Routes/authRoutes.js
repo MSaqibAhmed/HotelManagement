@@ -1,5 +1,5 @@
 import express from 'express';
-import { createStaff, deleteStaff, getStaff, loginUser, registerUser, updateStaff, updateStaffStatus } from '../Controllers/authController.js';
+import { createStaff, deleteStaff, getGuestByEmail, getStaff, loginUser, registerUser, updateStaff, updateStaffStatus } from '../Controllers/authController.js';
 import { protect } from '../Middlewares/authMiddleware.js';
 import { authorizeRoles } from '../Middlewares/roleMiddleware.js';
 
@@ -13,5 +13,6 @@ authRoutes.get("/staff", protect, authorizeRoles("admin"), getStaff);
 authRoutes.put("/staff/:id", protect, authorizeRoles("admin"), updateStaff);
 authRoutes.delete("/staff/:id", protect, authorizeRoles("admin"), deleteStaff);
 authRoutes.patch("/staff/:id/status",protect,authorizeRoles("admin"),updateStaffStatus);
+authRoutes.get("/guest-by-email",protect,authorizeRoles("admin", "manager", "receptionist"),getGuestByEmail);
 
 export default authRoutes;

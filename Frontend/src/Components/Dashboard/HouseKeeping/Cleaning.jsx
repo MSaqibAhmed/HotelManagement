@@ -7,16 +7,17 @@ const EditTaskModal = ({ task, onClose, onSave }) => {
   const [formData, setFormData] = useState({
     empName: task?.empName || "",
     roomNumber: task?.roomNumber || "",
-    date: task?.date || "",
+    date: task?.date ? task.date.split("T")[0] : "",
     status: task?.status || "Under Progress",
   });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (task) {
       setFormData({
         empName: task.empName || "",
         roomNumber: task.roomNumber || "",
-        date: task.date || "",
+        date: task.date ? task.date.split("T")[0] : "",
         status: task.status || "Under Progress",
       });
     }
@@ -28,11 +29,15 @@ const EditTaskModal = ({ task, onClose, onSave }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
-      await api.put(`/housekeeping/cleaning-tasks/${task._id}`, formData);
-      onSave({ ...task, ...formData });
+      const { data } = await api.put(`/housekeeping/cleaning-tasks/${task._id}`, formData);
+      onSave(data.task);
+      toast.success(data.message || "Task updated successfully");
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to update task");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -56,14 +61,14 @@ const EditTaskModal = ({ task, onClose, onSave }) => {
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">Status</label>
             <select name="status" value={formData.status} onChange={handleChange} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none">
+              <option value="Pending">Pending</option>
               <option value="Under Progress">Under Progress</option>
               <option value="Completed">Completed</option>
-              <option value="Pending">Pending</option>
             </select>
           </div>
           <div className="flex justify-end gap-3 pt-4">
             <button type="button" onClick={onClose} className="px-6 py-2.5 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50">Cancel</button>
-            <button type="submit" className="px-6 py-2.5 bg-[#1e1e1e] text-white rounded-xl font-semibold hover:bg-black">Update</button>
+            <button type="submit" disabled={loading} className="px-6 py-2.5 bg-[#1e1e1e] text-white rounded-xl font-semibold hover:bg-black disabled:opacity-60">{loading ? "Updating..." : "Update"}</button>
           </div>
         </form>
       </div>
@@ -119,9 +124,8 @@ const Cleaning = () => {
     setShowModal(true);
   };
 
-  const handleSave = async (updatedTask) => {
+  const handleSave = (updatedTask) => {
     setCleaningTasks((prev) => prev.map((t) => (t._id === updatedTask._id ? updatedTask : t)));
-    toast.success("Task updated successfully");
     setShowModal(false);
     setSelectedTask(null);
   };
@@ -203,7 +207,7 @@ const Cleaning = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 text-gray-700">{task.roomNumber}</td>
-                        <td className="px-6 py-4 text-gray-700">{task.date}</td>
+                        <td className="px-6 py-4 text-gray-700">{task.date?.split("T")[0]}</td>
                         <td className="px-6 py-4"><span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${getStatusClasses(task.status)}`}>{task.status}</span></td>
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-end gap-2">
@@ -236,7 +240,7 @@ const Cleaning = () => {
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div><p className="text-gray-400 text-xs mb-1">Date</p><p className="text-gray-700">{task.date}</p></div>
+                        <div><p className="text-gray-400 text-xs mb-1">Date</p><p className="text-gray-700">{task.date?.split("T")[0]}</p></div>
                         <div><p className="text-gray-400 text-xs mb-1">Status</p><span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getStatusClasses(task.status)}`}>{task.status}</span></div>
                       </div>
                     </div>

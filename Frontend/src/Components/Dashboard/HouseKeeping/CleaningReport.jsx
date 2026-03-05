@@ -84,10 +84,10 @@ const CleaningReport = () => {
                     <tr><td colSpan="6" className="text-center py-16"><div className="flex flex-col items-center"><p className="text-gray-500 font-medium">No report data found</p><p className="text-sm text-gray-400 mt-1">Data will appear once tasks are assigned</p></div></td></tr>
                   ) : (
                     paginatedData.map((row) => {
-                      const total = row.complete + row.pending + row.underProcess;
-                      const rate = total > 0 ? Math.round((row.complete / total) * 100) : 0;
+                      const total = row.completed + row.pending + row.underProcess;
+                      const rate = total > 0 ? Math.round((row.completed / total) * 100) : 0;
                       return (
-                        <tr key={row._id} className="hover:bg-gray-50">
+                        <tr key={row.employeeId} className="hover:bg-gray-50">
                           <td className="px-6 py-4 text-sm font-medium text-gray-700">{row.employeeId}</td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
@@ -95,7 +95,7 @@ const CleaningReport = () => {
                               <span className="font-medium text-gray-800">{row.empName}</span>
                             </div>
                           </td>
-                          <td className="px-6 py-4"><span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">{row.complete}</span></td>
+                          <td className="px-6 py-4"><span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">{row.completed}</span></td>
                           <td className="px-6 py-4"><span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-gray-50 text-gray-700 border border-gray-100">{row.pending}</span></td>
                           <td className="px-6 py-4"><span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">{row.underProcess}</span></td>
                           <td className="px-6 py-4">
@@ -120,10 +120,10 @@ const CleaningReport = () => {
               ) : (
                 <div className="divide-y divide-gray-200">
                   {paginatedData.map((row) => {
-                    const total = row.complete + row.pending + row.underProcess;
-                    const rate = total > 0 ? Math.round((row.complete / total) * 100) : 0;
+                    const total = row.completed + row.pending + row.underProcess;
+                    const rate = total > 0 ? Math.round((row.completed / total) * 100) : 0;
                     return (
-                      <div key={row._id} className="p-4 space-y-3">
+                      <div key={row.employeeId} className="p-4 space-y-3">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 shrink-0 bg-gradient-to-br from-[#1e266d] to-[#1e1e1e] rounded-full flex items-center justify-center text-white font-semibold">{(row.empName?.charAt(0) || "E").toUpperCase()}</div>
                           <div>
@@ -132,7 +132,7 @@ const CleaningReport = () => {
                           </div>
                         </div>
                         <div className="grid grid-cols-4 gap-2 text-sm">
-                          <div className="text-center"><p className="text-gray-400 text-xs mb-1">Complete</p><p className="text-emerald-600 font-semibold">{row.complete}</p></div>
+                          <div className="text-center"><p className="text-gray-400 text-xs mb-1">Complete</p><p className="text-emerald-600 font-semibold">{row.completed}</p></div>
                           <div className="text-center"><p className="text-gray-400 text-xs mb-1">Pending</p><p className="text-gray-600 font-semibold">{row.pending}</p></div>
                           <div className="text-center"><p className="text-gray-400 text-xs mb-1">In Progress</p><p className="text-amber-600 font-semibold">{row.underProcess}</p></div>
                           <div className="text-center"><p className="text-gray-400 text-xs mb-1">Rate</p><p className="text-[#1e266d] font-semibold">{rate}%</p></div>

@@ -16,6 +16,28 @@ const getUserFromStorage = () => {
   }
 };
 
+// ✅ local date (avoid UTC shift)
+const getLocalDateInputValue = () => {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+// ✅ optional: force local midnight string
+const toLocalMidnight = (dateStr) => (dateStr ? `${dateStr}T00:00:00` : "");
+
+// ✅ debounce helper (no libraries)
+const useDebouncedValue = (value, delay = 500) => {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+};
+
 const CreateReservation = () => {
   const navigate = useNavigate();
   const user = useMemo(() => getUserFromStorage(), []);
@@ -25,6 +47,7 @@ const CreateReservation = () => {
 
   const [loading, setLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [guestLookupLoading, setGuestLookupLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     guestName: "",
@@ -91,13 +114,68 @@ const CreateReservation = () => {
     clearFieldError(name);
   };
 
+  // ✅ admin/staff: auto fetch guest details by email (debounced)
+  const debouncedGuestEmail = useDebouncedValue(
+    String(formData.guestEmail || "").toLowerCase().trim(),
+    600
+  );
+
+  const fetchGuestByEmail = async (email) => {
+    try {
+      setGuestLookupLoading(true);
+
+      // ✅ backend endpoint required: GET /api/auth/guest-by-email?email=...
+      const { data } = await api.get(
+        `/auth/guest-by-email?email=${encodeURIComponent(email)}`
+      );
+
+      const g = data?.guest;
+
+      setFormData((p) => ({
+        ...p,
+        guestName: g?.name || "",
+        guestPhone: g?.phone || "",
+        guestEmail: g?.email || email,
+      }));
+
+      clearFieldError("guestName");
+      clearFieldError("guestPhone");
+    } catch (err) {
+      // guest not found -> clear auto fields (but keep email)
+      setFormData((p) => ({ ...p, guestName: "", guestPhone: "" }));
+
+      const msg = err?.response?.data?.message;
+      if (msg && msg !== "Guest not found") toast.error(msg);
+    } finally {
+      setGuestLookupLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isStaff) return;
+
+    if (!debouncedGuestEmail) {
+      setFormData((p) => ({ ...p, guestName: "", guestPhone: "" }));
+      return;
+    }
+
+    if (!emailRegex.test(debouncedGuestEmail)) {
+      setFormData((p) => ({ ...p, guestName: "", guestPhone: "" }));
+      return;
+    }
+
+    fetchGuestByEmail(debouncedGuestEmail);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedGuestEmail, isStaff]);
+
   const validateRequired = () => {
     const newErrors = {};
 
     if (isStaff) {
-      if (!formData.guestName.trim()) newErrors.guestName = "Guest Name is required";
+      // Email is required. Name/Phone will be auto-filled (but still required eventually).
       if (!formData.guestEmail.trim()) newErrors.guestEmail = "Email is required";
-      if (!formData.guestPhone.trim()) newErrors.guestPhone = "Phone is required";
+      if (!formData.guestName.trim()) newErrors.guestName = "Guest not found by email";
+      if (!formData.guestPhone.trim()) newErrors.guestPhone = "Guest phone not found";
     }
 
     if (!formData.roomType) newErrors.roomType = "Room Type is required";
@@ -111,16 +189,18 @@ const CreateReservation = () => {
 
   const validateForm = () => {
     if (isStaff) {
-      if (!nameRegex.test(formData.guestName.trim())) {
-        toast.error("Name must be at least 3 letters");
-        return false;
-      }
-      if (!emailRegex.test(formData.guestEmail.trim())) {
+      const e = String(formData.guestEmail || "").trim();
+      if (!emailRegex.test(e)) {
         toast.error("Please enter a valid email address");
         return false;
       }
-      if (!phoneRegex.test(formData.guestPhone.trim())) {
-        toast.error("Phone must be 10-15 digits");
+      // name/phone already fetched from DB; keep regex checks if you want:
+      if (formData.guestName && !nameRegex.test(formData.guestName.trim())) {
+        toast.error("Guest name invalid");
+        return false;
+      }
+      if (formData.guestPhone && !phoneRegex.test(formData.guestPhone.trim())) {
+        toast.error("Guest phone invalid");
         return false;
       }
     }
@@ -147,6 +227,7 @@ const CreateReservation = () => {
     return true;
   };
 
+  // ✅ preview auto-calc
   useEffect(() => {
     const canPreview = formData.roomType && formData.checkInDate && formData.checkOutDate;
 
@@ -171,8 +252,8 @@ const CreateReservation = () => {
 
         const qs = new URLSearchParams({
           roomType: formData.roomType,
-          checkInDate: formData.checkInDate,
-          checkOutDate: formData.checkOutDate,
+          checkInDate: toLocalMidnight(formData.checkInDate),
+          checkOutDate: toLocalMidnight(formData.checkOutDate),
           adults: String(Number(formData.adults || 1)),
           children: String(Number(formData.children || 0)),
         });
@@ -211,7 +292,6 @@ const CreateReservation = () => {
     };
 
     run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.roomType, formData.checkInDate, formData.checkOutDate, formData.adults, formData.children]);
 
   const handleClear = () => {
@@ -257,8 +337,8 @@ const CreateReservation = () => {
 
       const payload = {
         roomType: formData.roomType,
-        checkInDate: formData.checkInDate,
-        checkOutDate: formData.checkOutDate,
+        checkInDate: toLocalMidnight(formData.checkInDate),
+        checkOutDate: toLocalMidnight(formData.checkOutDate),
         paymentMethod: formData.paymentMethod,
         adults: Number(formData.adults || 1),
         children: Number(formData.children || 0),
@@ -290,7 +370,7 @@ const CreateReservation = () => {
   const errorText = (field) =>
     errors[field] ? <p className="text-red-500 text-xs font-semibold mt-2">{errors[field]}</p> : null;
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = getLocalDateInputValue();
 
   return (
     <div className="min-h-[calc(100vh-80px)] px-4 sm:px-6 lg:px-8 py-6 sm:py-8 bg-gray-50">
@@ -323,19 +403,6 @@ const CreateReservation = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name *</label>
-                    <input
-                      type="text"
-                      name="guestName"
-                      value={formData.guestName}
-                      onChange={handleChange}
-                      placeholder="Enter guest full name"
-                      className={inputClass("guestName")}
-                    />
-                    {errorText("guestName")}
-                  </div>
-
-                  <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
                     <input
                       type="email"
@@ -346,7 +413,33 @@ const CreateReservation = () => {
                       className={inputClass("guestEmail")}
                     />
                     {errorText("guestEmail")}
-                    <p className="text-[11px] text-gray-500 mt-2">Guest must be registered already (email match).</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      {guestLookupLoading ? (
+                        <p className="text-[11px] text-gray-500">Fetching guest details...</p>
+                      ) : formData.guestEmail && emailRegex.test(String(formData.guestEmail).trim()) ? (
+                        formData.guestName ? (
+                          <p className="text-[11px] text-green-600 font-semibold">Guest found ✓</p>
+                        ) : (
+                          <p className="text-[11px] text-gray-500">Guest not found (email must be registered)</p>
+                        )
+                      ) : (
+                        <p className="text-[11px] text-gray-500">Type a valid email to auto-fill name/phone.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name *</label>
+                    <input
+                      type="text"
+                      name="guestName"
+                      value={formData.guestName}
+                      onChange={handleChange}
+                      readOnly
+                      placeholder="Auto from guest email"
+                      className={`${inputClass("guestName")} bg-gray-50`}
+                    />
+                    {errorText("guestName")}
                   </div>
 
                   <div>
@@ -356,8 +449,9 @@ const CreateReservation = () => {
                       name="guestPhone"
                       value={formData.guestPhone}
                       onChange={handleChange}
-                      placeholder="Enter phone number"
-                      className={inputClass("guestPhone")}
+                      readOnly
+                      placeholder="Auto from guest email"
+                      className={`${inputClass("guestPhone")} bg-gray-50`}
                     />
                     {errorText("guestPhone")}
                   </div>
@@ -429,12 +523,28 @@ const CreateReservation = () => {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Adults</label>
-                  <input type="number" name="adults" value={formData.adults} onChange={handleChange} min={1} max={10} className={inputClass("adults")} />
+                  <input
+                    type="number"
+                    name="adults"
+                    value={formData.adults}
+                    onChange={handleChange}
+                    min={1}
+                    max={10}
+                    className={inputClass("adults")}
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Children</label>
-                  <input type="number" name="children" value={formData.children} onChange={handleChange} min={0} max={10} className={inputClass("children")} />
+                  <input
+                    type="number"
+                    name="children"
+                    value={formData.children}
+                    onChange={handleChange}
+                    min={0}
+                    max={10}
+                    className={inputClass("children")}
+                  />
                 </div>
 
                 <div>
@@ -469,7 +579,9 @@ const CreateReservation = () => {
                   {!!preview.capacity && (
                     <p className="text-xs text-gray-500 mt-1">
                       Capacity: {preview.capacity} • Persons: {preview.totalPersons}
-                      {preview.extraPersons > 0 ? ` • Extra: ${preview.extraPersons} (+Rs ${Number(preview.extraCharge || 0).toLocaleString()})` : ""}
+                      {preview.extraPersons > 0
+                        ? ` • Extra: ${preview.extraPersons} (+Rs ${Number(preview.extraCharge || 0).toLocaleString()})`
+                        : ""}
                     </p>
                   )}
                 </div>
@@ -502,13 +614,19 @@ const CreateReservation = () => {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || (isStaff && guestLookupLoading)}
                 className="w-full sm:w-auto min-w-[170px] py-3 px-6 rounded-xl font-bold transition disabled:opacity-60"
                 style={{ backgroundColor: THEME, color: "#111827" }}
               >
                 {loading ? "Creating..." : "Create Reservation"}
               </button>
             </div>
+
+            {isStaff && (
+              <p className="text-[11px] text-gray-500">
+                Note: Guest must be registered already. Email will auto-fill name & phone.
+              </p>
+            )}
           </form>
         </div>
       </div>

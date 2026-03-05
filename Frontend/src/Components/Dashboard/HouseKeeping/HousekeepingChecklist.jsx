@@ -8,6 +8,7 @@ const EditChecklistModal = ({ item, onClose, onSave }) => {
     checkPoint: item?.checkPoint || "",
     type: item?.type || "House Keeper",
   });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (item) {
@@ -24,12 +25,15 @@ const EditChecklistModal = ({ item, onClose, onSave }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
-      await api.put(`/housekeeping/checklist/${item._id}`, formData);
-      onSave({ ...item, ...formData });
-      toast.success("Checklist item updated successfully");
+      const { data } = await api.put(`/housekeeping/checklist/${item._id}`, formData);
+      onSave(data.item);
+      toast.success(data.message || "Checklist item updated successfully");
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to update checklist item");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -51,7 +55,7 @@ const EditChecklistModal = ({ item, onClose, onSave }) => {
           </div>
           <div className="flex justify-end gap-3 pt-4">
             <button type="button" onClick={onClose} className="px-6 py-2.5 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50">Cancel</button>
-            <button type="submit" className="px-6 py-2.5 bg-[#1e1e1e] text-white rounded-xl font-semibold hover:bg-black">Update</button>
+            <button type="submit" disabled={loading} className="px-6 py-2.5 bg-[#1e1e1e] text-white rounded-xl font-semibold hover:bg-black disabled:opacity-60">{loading ? "Updating..." : "Update"}</button>
           </div>
         </form>
       </div>
@@ -107,7 +111,7 @@ const HousekeepingChecklist = () => {
     setShowModal(true);
   };
 
-  const handleSave = async (updatedItem) => {
+  const handleSave = (updatedItem) => {
     setChecklist((prev) => prev.map((i) => (i._id === updatedItem._id ? updatedItem : i)));
     setShowModal(false);
     setSelectedItem(null);

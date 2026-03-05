@@ -19,9 +19,12 @@ const Assign = () => {
         api.get("/auth/staff"),
       ]);
       setRooms(roomsRes.data.rooms || []);
-      setStaffList(staffRes.data.staff || []);
+      const housekeepingStaff = staffRes.data.staff?.filter((s) => s.role === "housekeeping") || [];
+      setStaffList(housekeepingStaff);
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to fetch data");
+      setRooms([]);
+      setStaffList([]);
     } finally {
       setLoading(false);
     }
@@ -42,14 +45,19 @@ const Assign = () => {
       toast.error("Please select a house keeper first");
       return;
     }
+    if (filteredRooms.length === 0) {
+      toast.error("No rooms available to assign");
+      return;
+    }
     try {
-      setAssigningId(selectedHouseKeeper);
+      setAssigningId("assigning");
       await api.post("/housekeeping/assign-task", {
         roomId: filteredRooms[0]._id,
         staffId: selectedHouseKeeper,
         roomType,
       });
       toast.success("Task assigned successfully");
+      fetchData();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to assign task");
     } finally {
@@ -100,7 +108,7 @@ const Assign = () => {
             <label className="block text-xs font-semibold text-gray-500 mb-1">House Keeper</label>
             <select value={selectedHouseKeeper} onChange={(e) => setSelectedHouseKeeper(e.target.value)} className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-[#1e266d]/10">
               <option value="">Choose...</option>
-              {staffList.filter((s) => s.role === "House Keeper").map((staff) => (
+              {staffList.map((staff) => (
                 <option key={staff._id} value={staff._id}>{staff.name}</option>
               ))}
             </select>
@@ -126,7 +134,7 @@ const Assign = () => {
             </select>
           </div>
           <div className="flex items-end">
-            <button onClick={handleAssign} className="w-full px-4 py-2.5 bg-[#1e266d] text-white text-sm font-semibold rounded-xl hover:bg-[#1a205c] transition">Apply Filters</button>
+            <button onClick={handleAssign} disabled={assigningId === "assigning"} className="w-full px-4 py-2.5 bg-[#1e266d] text-white text-sm font-semibold rounded-xl hover:bg-[#1a205c] transition disabled:opacity-60">Apply Filters</button>
           </div>
         </div>
 
@@ -160,7 +168,7 @@ const Assign = () => {
                 </div>
                 {room.isAssigned && (
                   <div className="mt-3 pt-3 border-t border-gray-200">
-                    <p className="text-xs text-gray-500 text-center">Assigned to: Staff</p>
+                    <p className="text-xs text-gray-500 text-center">Assigned</p>
                   </div>
                 )}
               </div>
@@ -169,8 +177,8 @@ const Assign = () => {
         )}
 
         <div className="flex justify-end mt-6">
-          <button onClick={handleAssign} disabled={!selectedHouseKeeper || filteredRooms.length === 0} className="px-6 py-2.5 bg-[#1e266d] text-white text-sm font-semibold rounded-xl hover:bg-[#1a205c] transition disabled:opacity-50 disabled:cursor-not-allowed">
-            Assign Selected Rooms
+          <button onClick={handleAssign} disabled={!selectedHouseKeeper || filteredRooms.length === 0 || assigningId === "assigning"} className="px-6 py-2.5 bg-[#1e266d] text-white text-sm font-semibold rounded-xl hover:bg-[#1a205c] transition disabled:opacity-50 disabled:cursor-not-allowed">
+            {assigningId === "assigning" ? "Assigning..." : "Assign Selected Rooms"}
           </button>
         </div>
       </div>

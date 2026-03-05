@@ -218,3 +218,20 @@ export const updateStaffStatus = async (req, res) => {
     });
   }
 };
+
+
+// GET /api/auth/guest-by-email?email=...
+export const getGuestByEmail = async (req, res) => {
+  try {
+    const email = String(req.query.email || "").toLowerCase().trim();
+    if (!email) return res.status(400).json({ message: "email is required" });
+
+    const guest = await User.findOne({ email, role: "guest" }).select("name email phone role isActive");
+    if (!guest) return res.status(404).json({ message: "Guest not found" });
+    if (!guest.isActive) return res.status(403).json({ message: "Guest account deactivated" });
+
+    return res.json({ guest });
+  } catch (err) {
+    return res.status(500).json({ message: "Failed to fetch guest", error: err.message });
+  }
+};

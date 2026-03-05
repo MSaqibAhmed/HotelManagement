@@ -15,8 +15,8 @@ const RoomQRList = () => {
   const fetchRooms = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/room/getroom");
-      setRooms(res.data.rooms || []);
+      const { data } = await api.get("/room/getroom");
+      setRooms(data.rooms || []);
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to fetch rooms");
       setRooms([]);

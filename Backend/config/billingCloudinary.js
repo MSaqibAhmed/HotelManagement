@@ -13,7 +13,8 @@ const storage = new CloudinaryStorage({
   cloudinary,
   params: {
     folder: "hotel-management/receipts",
-    allowed_formats: ["jpg", "jpeg", "png", "JPG", "JPEG", "PNG"],
+    resource_type: "auto",
+    allowed_formats: ["jpg", "jpeg", "png", "pdf", "JPG", "JPEG", "PNG", "PDF"],
   },
 });
 

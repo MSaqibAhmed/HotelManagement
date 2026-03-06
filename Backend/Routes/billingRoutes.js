@@ -14,14 +14,12 @@ import {
 
 import { protect } from "../Middlewares/authMiddleware.js";
 import { authorizeRoles } from "../Middlewares/roleMiddleware.js";
-
-// ✅ NOTE: keep filename EXACT same as your config file
-import { uploadReceipt } from "../config/BillingCloudinary.js";
+import { uploadReceipt } from "../config/billingCloudinary.js";
 
 const billingRoutes = express.Router();
 
 /**
- * ✅ Staff Dashboard Overview
+ * Staff billing dashboard overview
  */
 billingRoutes.get(
   "/overview",
@@ -31,8 +29,8 @@ billingRoutes.get(
 );
 
 /**
- * ✅ NEW: Pending Reservations (for billing screen)
- * Staff will fetch all Pending reservations + attached invoice (if exists)
+ * Staff: pending reservations for billing screen
+ * reservation + attached invoice if exists
  */
 billingRoutes.get(
   "/pending-reservations",
@@ -42,9 +40,13 @@ billingRoutes.get(
 );
 
 /**
- * ✅ Payment Submit (Guest/Staff)
- * Online => receipt required (multipart)
- * Cash   => receipt optional
+ * Guest/Staff payment submit
+ * Supports:
+ * - full payment
+ * - partial payment
+ * - remaining payment at checkout
+ * Online => receipt required
+ * Cash => no receipt required
  */
 billingRoutes.post(
   "/payment",
@@ -55,7 +57,9 @@ billingRoutes.post(
 );
 
 /**
- * ✅ Invoices list (Guest sees own, Staff sees all)
+ * List invoices
+ * Guest => own invoices
+ * Staff => all invoices
  */
 billingRoutes.get(
   "/invoices",
@@ -65,7 +69,7 @@ billingRoutes.get(
 );
 
 /**
- * ✅ Invoice detail
+ * Single invoice detail
  */
 billingRoutes.get(
   "/invoices/:id",
@@ -75,7 +79,7 @@ billingRoutes.get(
 );
 
 /**
- * ✅ PDF download
+ * Invoice PDF download
  */
 billingRoutes.get(
   "/invoices/:id/pdf",
@@ -85,7 +89,9 @@ billingRoutes.get(
 );
 
 /**
- * ✅ Staff confirms payment => invoice Paid + reservation Confirmed
+ * Staff confirm pending online payment
+ * If full amount completed => Paid
+ * Otherwise => PartiallyPaid
  */
 billingRoutes.post(
   "/invoices/:id/confirm",
@@ -95,7 +101,7 @@ billingRoutes.post(
 );
 
 /**
- * ✅ Staff rejects payment => invoice Rejected + reservation payment Rejected
+ * Staff reject pending online payment
  */
 billingRoutes.post(
   "/invoices/:id/reject",
@@ -103,6 +109,10 @@ billingRoutes.post(
   authorizeRoles("admin", "manager", "receptionist"),
   rejectPayment
 );
+
+/**
+ * Optional email endpoint
+ */
 billingRoutes.post(
   "/invoices/:id/send-email",
   protect,
@@ -110,7 +120,11 @@ billingRoutes.post(
   sendInvoiceEmail
 );
 
-
+/**
+ * Pending / unpaid / partial invoices
+ * Guest => own pending invoices
+ * Staff => all pending invoices
+ */
 billingRoutes.get(
   "/pending-payments",
   protect,

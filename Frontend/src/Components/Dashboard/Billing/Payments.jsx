@@ -1,5 +1,13 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { FaSearch, FaReceipt, FaCheck, FaTimes, FaCreditCard } from "react-icons/fa";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  FaSearch,
+  FaReceipt,
+  FaCheck,
+  FaTimes,
+  FaCreditCard,
+  FaMoneyBillWave,
+  FaEye,
+} from "react-icons/fa";
 import { toast } from "react-toastify";
 import api from "../../../api";
 
@@ -14,6 +22,33 @@ const getUserFromStorage = () => {
 };
 
 const isProbablyPdf = (url) => String(url || "").toLowerCase().includes(".pdf");
+const formatCurrency = (value) => `Rs ${Number(value || 0).toLocaleString()}`;
+
+const mergeRows = (...lists) => {
+  const map = new Map();
+
+  lists.flat().forEach((item) => {
+    const reservationId = item?.reservation?._id || "";
+    const invoiceId = item?.invoice?._id || "";
+    const key = invoiceId || reservationId;
+
+    if (!key) return;
+
+    const existing = map.get(key);
+
+    if (!existing) {
+      map.set(key, item);
+      return;
+    }
+
+    map.set(key, {
+      reservation: item?.reservation || existing?.reservation || {},
+      invoice: item?.invoice || existing?.invoice || null,
+    });
+  });
+
+  return Array.from(map.values());
+};
 
 const Payments = () => {
   const user = useMemo(() => getUserFromStorage(), []);
@@ -21,27 +56,28 @@ const Payments = () => {
   const isGuest = role === "guest";
   const isStaff = ["admin", "manager", "receptionist"].includes(role);
 
-  const [rows, setRows] = useState([]); // [{ reservation, invoice }]
+  const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
-
-  // ✅ Guest by default pending dekhega
-  const [statusFilter, setStatusFilter] = useState(isGuest ? "Pending" : "All");
+  const [statusFilter, setStatusFilter] = useState("All");
   const [methodFilter, setMethodFilter] = useState("All");
 
-  // receipt view modal
   const [selected, setSelected] = useState(null);
   const [showReceipt, setShowReceipt] = useState(false);
 
-  // pay modal
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyRow, setHistoryRow] = useState(null);
+
   const [payModalOpen, setPayModalOpen] = useState(false);
   const [payRow, setPayRow] = useState(null);
   const [payMethod, setPayMethod] = useState("Cash");
+  const [payAmount, setPayAmount] = useState("");
+  const [payStage, setPayStage] = useState("Advance");
+  const [payNote, setPayNote] = useState("");
   const [receiptFile, setReceiptFile] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
 
-  // reject modal
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectRow, setRejectRow] = useState(null);
   const [rejectNote, setRejectNote] = useState("");
@@ -54,6 +90,8 @@ const Payments = () => {
         return "bg-amber-50 text-amber-600 border border-amber-200";
       case "PendingVerification":
         return "bg-blue-50 text-blue-600 border border-blue-200";
+      case "PartiallyPaid":
+        return "bg-purple-50 text-purple-600 border border-purple-200";
       case "Rejected":
         return "bg-red-50 text-red-600 border border-red-200";
       default:
@@ -61,79 +99,90 @@ const Payments = () => {
     }
   };
 
-  const fetchGuestInvoices = async () => {
-    // ✅ Guest ke liye: All = Pending + PendingVerification merge
-    const baseParams = new URLSearchParams();
-    if (methodFilter !== "All") baseParams.set("method", methodFilter);
-    if (searchTerm.trim()) baseParams.set("q", searchTerm.trim());
-
-    const fetchByStatus = async (st) => {
-      const params = new URLSearchParams(baseParams.toString());
-      if (st && st !== "All") params.set("status", st);
-      const { data } = await api.get(`/billing/invoices?${params.toString()}`);
-      return data?.invoices || [];
-    };
-
-    if (statusFilter === "All") {
-      const [p1, p2] = await Promise.all([
-        fetchByStatus("Pending"),
-        fetchByStatus("PendingVerification"),
-      ]);
-
-      // merge unique by _id
-      const map = new Map();
-      [...p1, ...p2].forEach((inv) => map.set(String(inv._id), inv));
-      return Array.from(map.values());
+  const normalizeInvoiceMethod = (invoice, reservation) => {
+    if (invoice?.paymentHistory?.length) {
+      const last = invoice.paymentHistory[invoice.paymentHistory.length - 1];
+      return last?.method || "Cash";
     }
-
-    return fetchByStatus(statusFilter);
+    return reservation?.payment?.method || "Cash";
   };
 
-  const fetchData = async () => {
+  const normalizeReceiptUrl = (invoice, reservation) => {
+    if (invoice?.paymentHistory?.length) {
+      const withReceipt = [...invoice.paymentHistory]
+        .reverse()
+        .find((item) => item?.receipt?.url);
+      if (withReceipt?.receipt?.url) return withReceipt.receipt.url;
+    }
+    return reservation?.payment?.receipt?.url || "";
+  };
+
+  const fetchInvoices = useCallback(async () => {
+    const params = new URLSearchParams();
+    if (statusFilter !== "All") params.set("status", statusFilter);
+    if (methodFilter !== "All") params.set("method", methodFilter);
+    if (searchTerm.trim()) params.set("q", searchTerm.trim());
+
+    const { data } = await api.get(`/billing/invoices?${params.toString()}`);
+    return (data?.invoices || []).map((inv) => ({
+      reservation: inv?.reservation || {},
+      invoice: inv,
+    }));
+  }, [methodFilter, searchTerm, statusFilter]);
+
+  const fetchPendingPayments = useCallback(async () => {
+    const { data } = await api.get("/billing/pending-payments");
+    return (data?.invoices || []).map((inv) => ({
+      reservation: inv?.reservation || {},
+      invoice: inv,
+    }));
+  }, []);
+
+  const fetchPendingReservations = useCallback(async () => {
+    const { data } = await api.get("/billing/pending-reservations");
+    return data?.data || [];
+  }, []);
+
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
 
-      if (isStaff) {
-        // ✅ staff sees pending reservations with attached invoice (if any)
-        const { data } = await api.get("/billing/pending-reservations");
-        setRows(data?.data || []);
-      } else {
-        // ✅ guest sees their invoices (Pending / PendingVerification etc)
-        const invoices = await fetchGuestInvoices();
+      if (isGuest) {
+        const [invoiceRows, pendingRows] = await Promise.all([
+          fetchInvoices(),
+          fetchPendingPayments(),
+        ]);
 
-        const guestRows = invoices.map((inv) => ({
-          reservation: inv.reservation,
-          invoice: inv,
-        }));
-
-        setRows(guestRows);
+        setRows(mergeRows(invoiceRows, pendingRows));
+        return;
       }
+
+      const [invoiceRows, pendingRows, reservationRows] = await Promise.all([
+        fetchInvoices(),
+        fetchPendingPayments(),
+        fetchPendingReservations(),
+      ]);
+
+      setRows(mergeRows(invoiceRows, pendingRows, reservationRows));
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to fetch payments");
       setRows([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchInvoices, fetchPendingPayments, fetchPendingReservations, isGuest]);
 
   useEffect(() => {
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, methodFilter]);
-
-  useEffect(() => {
-    const t = setTimeout(() => fetchData(), 350);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm]);
+  }, [fetchData]);
 
   const mapped = useMemo(() => {
     const q = searchTerm.toLowerCase().trim();
 
     return (rows || [])
       .map((r) => {
-        const reservation = r.reservation || {};
-        const invoice = r.invoice || null;
+        const reservation = r?.reservation || {};
+        const invoice = r?.invoice || null;
 
         const guestName =
           reservation?.guest?.name ||
@@ -147,22 +196,29 @@ const Payments = () => {
           invoice?.guest?.email ||
           "";
 
-        const reservationNumber = reservation?.reservationNumber || "";
-        const roomType = reservation?.roomType || "";
+        const reservationNumber = reservation?.reservationNumber || "—";
+        const roomType = reservation?.roomType || reservation?.room?.roomType || "—";
         const roomNumber =
           reservation?.roomSnapshot?.roomNumber ||
           reservation?.room?.roomNumber ||
-          "";
+          "-";
 
-        const amount = Number(invoice?.amount || reservation?.payment?.amount || 0) || 0;
+        const totalAmount = Number(
+          invoice?.totalAmount ?? reservation?.payment?.amount ?? 0
+        );
 
-        const method = invoice?.method || reservation?.payment?.method || "Cash";
+        const paidAmount = Number(invoice?.paidAmount || 0);
 
+        const remainingAmount = Number(
+          invoice?.remainingAmount ?? Math.max(totalAmount - paidAmount, 0)
+        );
+
+        const method = normalizeInvoiceMethod(invoice, reservation);
         const status = invoice?.status || reservation?.payment?.status || "Pending";
-
-        const receiptUrl = invoice?.receipt?.url || reservation?.payment?.receipt?.url || "";
-
+        const receiptUrl = normalizeReceiptUrl(invoice, reservation);
         const createdAt = invoice?.createdAt || reservation?.createdAt;
+        const invoiceNumber = invoice?.invoiceNumber || "Not Generated Yet";
+        const paymentHistory = invoice?.paymentHistory || [];
 
         return {
           reservation,
@@ -172,11 +228,15 @@ const Payments = () => {
           reservationNumber,
           roomType,
           roomNumber,
-          amount,
+          totalAmount,
+          paidAmount,
+          remainingAmount,
           method,
           status,
           receiptUrl,
           createdAt,
+          invoiceNumber,
+          paymentHistory,
         };
       })
       .filter((x) => {
@@ -185,71 +245,120 @@ const Payments = () => {
           x.guestName?.toLowerCase().includes(q) ||
           x.guestEmail?.toLowerCase().includes(q) ||
           x.reservationNumber?.toLowerCase().includes(q) ||
-          x.invoice?.invoiceNumber?.toLowerCase().includes(q);
+          x.invoiceNumber?.toLowerCase().includes(q);
 
         const matchesStatus = statusFilter === "All" || x.status === statusFilter;
         const matchesMethod = methodFilter === "All" || x.method === methodFilter;
 
         return matchesSearch && matchesStatus && matchesMethod;
-      });
+      })
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   }, [rows, searchTerm, statusFilter, methodFilter]);
 
+  const resetPayModal = () => {
+    setPayRow(null);
+    setPayMethod("Cash");
+    setPayAmount("");
+    setPayStage("Advance");
+    setPayNote("");
+    setReceiptFile(null);
+    setPayModalOpen(false);
+  };
+
   const openPayModal = (row) => {
+    const remaining = Number(row?.remainingAmount || row?.totalAmount || 0);
+
+    if (remaining <= 0) {
+      toast.error("No remaining amount");
+      return;
+    }
+
     setPayRow(row);
-    // ✅ if already Online pendingVerification, keep Online selected
-    setPayMethod(row.method || (row.status === "PendingVerification" ? "Online" : "Cash"));
+    setPayMethod(isGuest ? "Online" : row?.method || "Cash");
+    setPayAmount(remaining > 0 ? String(remaining) : "");
+    setPayStage(
+      row?.paidAmount > 0
+        ? "Final"
+        : remaining === Number(row?.totalAmount || 0)
+        ? "Advance"
+        : "Partial"
+    );
+    setPayNote("");
     setReceiptFile(null);
     setPayModalOpen(true);
   };
 
-  // ✅ Guest submits payment / uploads receipt
   const submitPayment = async () => {
     if (!payRow?.reservation?._id) {
       toast.error("Reservation not found");
       return;
     }
 
+    if (!payAmount || Number(payAmount) <= 0) {
+      toast.error("Enter valid amount");
+      return;
+    }
+
+    const remaining = Number(payRow?.remainingAmount || payRow?.totalAmount || 0);
+
+    if (Number(payAmount) > remaining) {
+      toast.error("Amount exceeds remaining balance");
+      return;
+    }
+
+    if (isGuest && payMethod !== "Online") {
+      toast.error("Guest can only upload online payment receipt");
+      return;
+    }
+
     if (payMethod === "Online" && !receiptFile) {
-      toast.error("Receipt is required for Online payment");
+      toast.error("Receipt is required for online payment");
       return;
     }
 
     try {
-      setSubmitting(true);
+      setActionLoading(true);
 
       const fd = new FormData();
       fd.append("reservationId", payRow.reservation._id);
       fd.append("method", payMethod);
-      if (receiptFile) fd.append("receipt", receiptFile);
+      fd.append("amount", Number(payAmount));
+      fd.append("stage", payStage);
+      fd.append("note", payNote);
+
+      if (receiptFile) {
+        fd.append("receipt", receiptFile);
+      }
 
       const { data } = await api.post("/billing/payment", fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      toast.success(data?.message || "Payment submitted");
-      setPayModalOpen(false);
-      setPayRow(null);
-      setReceiptFile(null);
-
+      toast.success(data?.message || "Payment submitted successfully");
+      resetPayModal();
       fetchData();
     } catch (err) {
       toast.error(err?.response?.data?.message || "Payment submit failed");
     } finally {
-      setSubmitting(false);
+      setActionLoading(false);
     }
   };
 
-  // ✅ Staff confirm existing invoice
   const confirmInvoice = async (invoiceId) => {
+    if (!invoiceId) {
+      toast.error("Invoice not found");
+      return;
+    }
+
     try {
-      setSubmitting(true);
+      setActionLoading(true);
       const { data } = await api.post(`/billing/invoices/${invoiceId}/confirm`);
       toast.success(data?.message || "Payment confirmed");
       fetchData();
     } catch (err) {
       toast.error(err?.response?.data?.message || "Confirm failed");
     } finally {
-      setSubmitting(false);
+      setActionLoading(false);
     }
   };
 
@@ -264,17 +373,22 @@ const Payments = () => {
       toast.error("Invoice not found");
       return;
     }
+
     if (!rejectNote.trim()) {
       toast.error("Reject note is required");
       return;
     }
 
     try {
-      setSubmitting(true);
-      const { data } = await api.post(`/billing/invoices/${rejectRow.invoice._id}/reject`, {
-        note: rejectNote.trim(),
-      });
-      toast.success(data?.message || "Rejected");
+      setActionLoading(true);
+      const { data } = await api.post(
+        `/billing/invoices/${rejectRow.invoice._id}/reject`,
+        {
+          note: rejectNote.trim(),
+        }
+      );
+
+      toast.success(data?.message || "Payment rejected");
       setRejectModalOpen(false);
       setRejectRow(null);
       setRejectNote("");
@@ -282,7 +396,7 @@ const Payments = () => {
     } catch (err) {
       toast.error(err?.response?.data?.message || "Reject failed");
     } finally {
-      setSubmitting(false);
+      setActionLoading(false);
     }
   };
 
@@ -291,23 +405,76 @@ const Payments = () => {
     setShowReceipt(true);
   };
 
+  const openHistoryModal = (row) => {
+    setHistoryRow(row);
+    setHistoryOpen(true);
+  };
+
+  const canPayRow = (row) => {
+    if (!row?.reservation?._id) return false;
+    if (row?.status === "Paid") return false;
+    if (Number(row?.remainingAmount || 0) <= 0) return false;
+    return true;
+  };
+
+  const canGuestUploadReceipt = (row) =>
+    isGuest &&
+    canPayRow(row) &&
+    row?.method === "Online" &&
+    ["Pending", "PartiallyPaid", "Rejected"].includes(row?.status);
+
+  const canStaffTakePayment = (row) =>
+    isStaff &&
+    canPayRow(row) &&
+    ["Pending", "PartiallyPaid", "Rejected"].includes(row?.status);
+
+  const canStaffConfirm = (row) =>
+    isStaff &&
+    row?.invoice?._id &&
+    row?.status === "PendingVerification";
+
+  const canShowReceiptButton = (row) => Boolean(row?.receiptUrl);
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#1e266d]">
-            {isStaff ? "Pending Reservations Payments" : "My Pending Payments"}
+            {isStaff ? "Payments Management" : "My Payments"}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
             {isStaff
-              ? "Staff: receipt verify karo aur confirm/reject karo."
-              : "Guest: online ho to receipt upload karo, phir staff confirm karega."}
+              ? "Receptionist cash, online, partial aur remaining checkout payments handle karega."
+              : "Guest apni payment status dekh sakta hai. Sirf online payment hone par receipt upload kar sakta hai."}
           </p>
         </div>
       </div>
 
-      {/* Filters */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+          <p className="text-sm text-gray-500">Total Records</p>
+          <h3 className="text-2xl font-bold text-[#1e266d] mt-1">{mapped.length}</h3>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+          <p className="text-sm text-gray-500">Pending</p>
+          <h3 className="text-2xl font-bold text-amber-600 mt-1">
+            {mapped.filter((x) => x.status === "Pending").length}
+          </h3>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+          <p className="text-sm text-gray-500">Pending Verification</p>
+          <h3 className="text-2xl font-bold text-blue-600 mt-1">
+            {mapped.filter((x) => x.status === "PendingVerification").length}
+          </h3>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+          <p className="text-sm text-gray-500">Partially Paid</p>
+          <h3 className="text-2xl font-bold text-purple-600 mt-1">
+            {mapped.filter((x) => x.status === "PartiallyPaid").length}
+          </h3>
+        </div>
+      </div>
+
       <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
         <div className="flex flex-col lg:flex-row gap-4 lg:items-center">
           <div className="flex-1 relative">
@@ -324,11 +491,12 @@ const Payments = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full lg:w-64 px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none bg-white"
+            className="w-full lg:w-56 px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none bg-white"
           >
             <option value="All">All Status</option>
             <option value="Pending">Pending</option>
             <option value="PendingVerification">Pending Verification</option>
+            <option value="PartiallyPaid">Partially Paid</option>
             <option value="Paid">Paid</option>
             <option value="Rejected">Rejected</option>
           </select>
@@ -347,7 +515,6 @@ const Payments = () => {
         </div>
       </div>
 
-      {/* Table */}
       <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
         {loading ? (
           <div className="flex justify-center items-center py-20">
@@ -356,7 +523,7 @@ const Payments = () => {
         ) : (
           <>
             <div className="hidden lg:block overflow-x-auto">
-              <table className="w-full min-w-[1100px]">
+              <table className="w-full min-w-[1400px]">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
@@ -369,7 +536,13 @@ const Payments = () => {
                       Room
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
-                      Amount
+                      Total
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                      Paid
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                      Remaining
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
                       Method
@@ -386,68 +559,87 @@ const Payments = () => {
                 <tbody className="divide-y divide-gray-200">
                   {mapped.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="text-center py-16">
+                      <td colSpan="9" className="text-center py-16">
                         <p className="text-gray-500 font-medium">No records found</p>
                       </td>
                     </tr>
                   ) : (
-                    mapped.map((row) => {
-                      const invoiceNumber = row.invoice?.invoiceNumber || "—";
+                    mapped.map((row) => (
+                      <tr
+                        key={row.reservation?._id || row.invoice?._id}
+                        className="hover:bg-gray-50"
+                      >
+                        <td className="px-6 py-4">
+                          <p className="font-semibold text-gray-800">
+                            {row.reservationNumber || "—"}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Invoice: {row.invoiceNumber}
+                          </p>
+                        </td>
 
-                      // ✅ Guest: receipt upload option for Pending + PendingVerification
-                      const canGuestUpload =
-                        isGuest && (row.status === "Pending" || row.status === "PendingVerification");
+                        <td className="px-6 py-4">
+                          <p className="font-medium text-gray-800">{row.guestName}</p>
+                          <p className="text-xs text-gray-500">{row.guestEmail}</p>
+                        </td>
 
-                      // ✅ Staff: confirm button for Pending + PendingVerification (invoice must exist)
-                      const canStaffConfirm =
-                        isStaff &&
-                        row.invoice?._id &&
-                        (row.status === "Pending" || row.status === "PendingVerification");
+                        <td className="px-6 py-4">
+                          <p className="text-sm text-gray-700">{row.roomType || "—"}</p>
+                          <p className="text-xs text-gray-500">
+                            Room {row.roomNumber || "-"}
+                          </p>
+                        </td>
 
-                      return (
-                        <tr key={row.reservation?._id || row.invoice?._id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4">
-                            <p className="font-semibold text-gray-800">{row.reservationNumber}</p>
-                            <p className="text-xs text-gray-500">Invoice: {invoiceNumber}</p>
-                          </td>
+                        <td className="px-6 py-4">
+                          <p className="font-semibold text-gray-800">
+                            {formatCurrency(row.totalAmount)}
+                          </p>
+                        </td>
 
-                          <td className="px-6 py-4">
-                            <p className="font-medium text-gray-800">{row.guestName}</p>
-                            <p className="text-xs text-gray-500">{row.guestEmail}</p>
-                          </td>
+                        <td className="px-6 py-4">
+                          <p className="font-semibold text-emerald-700">
+                            {formatCurrency(row.paidAmount)}
+                          </p>
+                        </td>
 
-                          <td className="px-6 py-4">
-                            <p className="text-sm text-gray-700">{row.roomType}</p>
-                            <p className="text-xs text-gray-500">Room {row.roomNumber || "-"}</p>
-                          </td>
+                        <td className="px-6 py-4">
+                          <p className="font-semibold text-red-600">
+                            {formatCurrency(row.remainingAmount)}
+                          </p>
+                        </td>
 
-                          <td className="px-6 py-4">
-                            <p className="font-semibold text-gray-800">
-                              Rs {Number(row.amount || 0).toLocaleString()}
+                        <td className="px-6 py-4">
+                          <span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                            {row.method}
+                          </span>
+                        </td>
+
+                        <td className="px-6 py-4">
+                          <span
+                            className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${getStatusStyle(
+                              row.status
+                            )}`}
+                          >
+                            {row.status}
+                          </span>
+                          {row.invoice?.note ? (
+                            <p className="text-xs text-red-600 mt-1">
+                              Note: {row.invoice.note}
                             </p>
-                          </td>
+                          ) : null}
+                        </td>
 
-                          <td className="px-6 py-4">
-                            <span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                              {row.method}
-                            </span>
-                          </td>
-
-                          <td className="px-6 py-4">
-                            <span
-                              className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${getStatusStyle(
-                                row.status
-                              )}`}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-end gap-2 flex-wrap">
+                            <button
+                              onClick={() => openHistoryModal(row)}
+                              className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg"
+                              title="Payment history"
                             >
-                              {row.status}
-                            </span>
-                            {row.invoice?.note ? (
-                              <p className="text-xs text-red-600 mt-1">Note: {row.invoice.note}</p>
-                            ) : null}
-                          </td>
+                              <FaEye className="w-4 h-4" />
+                            </button>
 
-                          <td className="px-6 py-4">
-                            <div className="flex items-center justify-end gap-2">
+                            {canShowReceiptButton(row) && (
                               <button
                                 onClick={() => handleViewReceipt(row)}
                                 className="p-2 text-gray-500 hover:text-[#1e266d] hover:bg-[#1e266d]/10 rounded-lg"
@@ -455,126 +647,346 @@ const Payments = () => {
                               >
                                 <FaReceipt className="w-4 h-4" />
                               </button>
+                            )}
 
-                              {canGuestUpload && (
+                            {canGuestUploadReceipt(row) && (
+                              <button
+                                onClick={() => openPayModal(row)}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-gray-900"
+                                style={{ backgroundColor: THEME }}
+                                title="Upload online receipt"
+                              >
+                                <FaCreditCard className="w-4 h-4" />
+                                {row.paidAmount > 0 ? "Upload Remaining Receipt" : "Upload Receipt"}
+                              </button>
+                            )}
+
+                            {canStaffTakePayment(row) && (
+                              <button
+                                onClick={() => openPayModal(row)}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-gray-900"
+                                style={{ backgroundColor: THEME }}
+                                title="Add payment"
+                              >
+                                <FaMoneyBillWave className="w-4 h-4" />
+                                {row.paidAmount > 0 ? "Pay Remaining" : "Add Payment"}
+                              </button>
+                            )}
+
+                            {canStaffConfirm(row) && (
+                              <>
                                 <button
-                                  onClick={() => openPayModal(row)}
-                                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-gray-900"
-                                  style={{ backgroundColor: THEME }}
-                                  title="Upload receipt"
+                                  disabled={actionLoading}
+                                  onClick={() => confirmInvoice(row.invoice._id)}
+                                  className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg disabled:opacity-60"
+                                  title="Confirm"
                                 >
-                                  <FaCreditCard className="w-4 h-4" /> Upload Receipt
+                                  <FaCheck />
                                 </button>
-                              )}
 
-                              {canStaffConfirm && (
-                                <>
-                                  <button
-                                    disabled={submitting}
-                                    onClick={() => confirmInvoice(row.invoice._id)}
-                                    className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg"
-                                    title="Confirm"
-                                  >
-                                    <FaCheck />
-                                  </button>
-
-                                  <button
-                                    disabled={submitting}
-                                    onClick={() => openRejectModal(row)}
-                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                                    title="Reject"
-                                  >
-                                    <FaTimes />
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
+                                <button
+                                  disabled={actionLoading}
+                                  onClick={() => openRejectModal(row)}
+                                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-60"
+                                  title="Reject"
+                                >
+                                  <FaTimes />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
                   )}
                 </tbody>
               </table>
             </div>
 
-            {/* Mobile view same as your old code — keep it if you want */}
+            <div className="lg:hidden p-4 space-y-4">
+              {mapped.length === 0 ? (
+                <div className="text-center py-10 text-gray-500">No records found</div>
+              ) : (
+                mapped.map((row) => (
+                  <div
+                    key={row.reservation?._id || row.invoice?._id}
+                    className="border border-gray-200 rounded-2xl p-4 shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-bold text-[#1e266d]">
+                          {row.reservationNumber || "—"}
+                        </h3>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Invoice: {row.invoiceNumber}
+                        </p>
+                      </div>
+                      <span
+                        className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${getStatusStyle(
+                          row.status
+                        )}`}
+                      >
+                        {row.status}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 space-y-2 text-sm">
+                      <p>
+                        <span className="text-gray-500">Guest:</span> {row.guestName}
+                      </p>
+                      <p>
+                        <span className="text-gray-500">Room:</span> {row.roomType} /{" "}
+                        {row.roomNumber || "-"}
+                      </p>
+                      <p>
+                        <span className="text-gray-500">Total:</span>{" "}
+                        {formatCurrency(row.totalAmount)}
+                      </p>
+                      <p>
+                        <span className="text-gray-500">Paid:</span>{" "}
+                        {formatCurrency(row.paidAmount)}
+                      </p>
+                      <p>
+                        <span className="text-gray-500">Remaining:</span>{" "}
+                        {formatCurrency(row.remainingAmount)}
+                      </p>
+                      <p>
+                        <span className="text-gray-500">Method:</span> {row.method}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      <button
+                        onClick={() => openHistoryModal(row)}
+                        className="px-3 py-2 rounded-xl border border-gray-300 text-sm font-semibold"
+                      >
+                        History
+                      </button>
+
+                      {canShowReceiptButton(row) && (
+                        <button
+                          onClick={() => handleViewReceipt(row)}
+                          className="px-3 py-2 rounded-xl border border-gray-300 text-sm font-semibold"
+                        >
+                          Receipt
+                        </button>
+                      )}
+
+                      {canGuestUploadReceipt(row) && (
+                        <button
+                          onClick={() => openPayModal(row)}
+                          className="px-3 py-2 rounded-xl text-sm font-semibold text-gray-900"
+                          style={{ backgroundColor: THEME }}
+                        >
+                          {row.paidAmount > 0 ? "Upload Remaining Receipt" : "Upload Receipt"}
+                        </button>
+                      )}
+
+                      {canStaffTakePayment(row) && (
+                        <button
+                          onClick={() => openPayModal(row)}
+                          className="px-3 py-2 rounded-xl text-sm font-semibold text-gray-900"
+                          style={{ backgroundColor: THEME }}
+                        >
+                          {row.paidAmount > 0 ? "Pay Remaining" : "Add Payment"}
+                        </button>
+                      )}
+
+                      {canStaffConfirm(row) && (
+                        <>
+                          <button
+                            disabled={actionLoading}
+                            onClick={() => confirmInvoice(row.invoice._id)}
+                            className="px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold disabled:opacity-60"
+                          >
+                            Confirm
+                          </button>
+
+                          <button
+                            disabled={actionLoading}
+                            onClick={() => openRejectModal(row)}
+                            className="px-3 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold disabled:opacity-60"
+                          >
+                            Reject
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </>
         )}
       </div>
 
-      {/* Pay Modal (Guest receipt upload) */}
       {payModalOpen && payRow && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl p-6">
+          <div className="bg-white w-full max-w-xl rounded-2xl shadow-xl p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-[#1e266d]">Upload Receipt</h2>
-              <button onClick={() => setPayModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl">
+              <h2 className="text-xl font-bold text-[#1e266d]">
+                {isGuest ? "Upload Online Payment Receipt" : "Add Payment"}
+              </h2>
+              <button
+                onClick={resetPayModal}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
                 ×
               </button>
             </div>
 
-            <p className="text-sm text-gray-600">
-              <b>{payRow.reservation?.reservationNumber}</b> • Rs {Number(payRow.amount || 0).toLocaleString()}
-            </p>
-
-            <div className="mt-3">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Payment Method</label>
-              <select
-                value={payMethod}
-                onChange={(e) => {
-                  setPayMethod(e.target.value);
-                  setReceiptFile(null);
-                }}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#1e266d]/15 bg-white"
-              >
-                <option value="Cash">Cash</option>
-                <option value="Online">Online</option>
-              </select>
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 mb-4">
+              <p className="text-sm text-gray-700">
+                <b>{payRow.reservationNumber}</b>
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3 text-sm">
+                <div>
+                  <p className="text-gray-500">Total</p>
+                  <p className="font-bold text-gray-800">
+                    {formatCurrency(payRow.totalAmount)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Paid</p>
+                  <p className="font-bold text-emerald-700">
+                    {formatCurrency(payRow.paidAmount)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Remaining</p>
+                  <p className="font-bold text-red-600">
+                    {formatCurrency(payRow.remainingAmount)}
+                  </p>
+                </div>
+              </div>
             </div>
 
-            {payMethod === "Online" && (
-              <div className="mt-3">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Upload Receipt (image/pdf) *</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Payment Method
+                </label>
+
+                {isGuest ? (
+                  <input
+                    value="Online"
+                    disabled
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-100 text-gray-600"
+                  />
+                ) : (
+                  <select
+                    value={payMethod}
+                    onChange={(e) => {
+                      setPayMethod(e.target.value);
+                      setReceiptFile(null);
+                    }}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#1e266d]/15 bg-white"
+                  >
+                    <option value="Cash">Cash</option>
+                    <option value="Online">Online</option>
+                  </select>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Payment Stage
+                </label>
+                <select
+                  value={payStage}
+                  onChange={(e) => setPayStage(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#1e266d]/15 bg-white"
+                >
+                  <option value="Advance">Advance</option>
+                  <option value="Partial">Partial</option>
+                  <option value="Final">Final</option>
+                  <option value="Full">Full</option>
+                </select>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Amount
+                </label>
                 <input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
-                  className="w-full"
+                  type="number"
+                  min="1"
+                  value={payAmount}
+                  onChange={(e) => setPayAmount(e.target.value)}
+                  placeholder="Enter amount"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#1e266d]/15"
                 />
                 <p className="text-xs text-gray-500 mt-2">
-                  Online payment ke liye receipt required hai. Staff verify karke confirm karega.
+                  Maximum payable amount: {formatCurrency(payRow.remainingAmount)}
                 </p>
               </div>
-            )}
+
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Note
+                </label>
+                <textarea
+                  value={payNote}
+                  onChange={(e) => setPayNote(e.target.value)}
+                  rows={3}
+                  placeholder="Optional note..."
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#1e266d]/15"
+                />
+              </div>
+
+              {(payMethod === "Online" || isGuest) && (
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Upload Receipt (image/pdf) *
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-gray-500 mt-2">
+                    {isGuest
+                      ? "Guest sirf online payment ki receipt upload kar sakta hai. Verification receptionist/admin karega."
+                      : "Online payment ke liye receipt required hai. Staff verify karke confirm karega."}
+                  </p>
+                </div>
+              )}
+            </div>
 
             <div className="flex justify-end gap-3 mt-5 pt-4 border-t border-gray-200">
               <button
-                onClick={() => setPayModalOpen(false)}
+                onClick={resetPayModal}
                 className="px-6 py-2.5 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
-                disabled={submitting}
+                disabled={actionLoading}
                 onClick={submitPayment}
                 className="px-6 py-2.5 rounded-xl font-bold disabled:opacity-60"
                 style={{ backgroundColor: THEME, color: "#111827" }}
               >
-                {submitting ? "Submitting..." : "Submit"}
+                {actionLoading
+                  ? "Submitting..."
+                  : isGuest
+                  ? "Submit Receipt"
+                  : "Submit Payment"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Receipt Modal */}
       {showReceipt && selected && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-[#1e266d]">Receipt</h2>
-              <button onClick={() => setShowReceipt(false)} className="text-gray-400 hover:text-gray-600 text-2xl">
+              <button
+                onClick={() => setShowReceipt(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
                 ×
               </button>
             </div>
@@ -601,7 +1013,11 @@ const Payments = () => {
                 </div>
 
                 {!isProbablyPdf(selected.receiptUrl) ? (
-                  <img src={selected.receiptUrl} alt="receipt" className="w-full rounded-xl border border-gray-200" />
+                  <img
+                    src={selected.receiptUrl}
+                    alt="receipt"
+                    className="w-full rounded-xl border border-gray-200"
+                  />
                 ) : (
                   <p className="text-xs text-gray-500">Receipt is PDF. Open to view.</p>
                 )}
@@ -620,23 +1036,139 @@ const Payments = () => {
         </div>
       )}
 
-      {/* Reject Modal */}
+      {historyOpen && historyRow && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl p-6 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-2xl font-bold text-[#1e266d]">Payment History</h2>
+              <button
+                onClick={() => setHistoryOpen(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 mb-4">
+              <p className="font-semibold text-gray-800">
+                Reservation: {historyRow.reservationNumber}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3 text-sm">
+                <div>
+                  <p className="text-gray-500">Total</p>
+                  <p className="font-bold">{formatCurrency(historyRow.totalAmount)}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Paid</p>
+                  <p className="font-bold text-emerald-700">
+                    {formatCurrency(historyRow.paidAmount)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Remaining</p>
+                  <p className="font-bold text-red-600">
+                    {formatCurrency(historyRow.remainingAmount)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {!historyRow.paymentHistory?.length ? (
+              <p className="text-sm text-gray-500">No payment history found.</p>
+            ) : (
+              <div className="space-y-3">
+                {historyRow.paymentHistory.map((item, index) => (
+                  <div
+                    key={`${item?.paidAt || index}-${index}`}
+                    className="border border-gray-200 rounded-xl p-4"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-gray-800">
+                          {item?.stage || "Payment"} • {item?.method || "Cash"}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {item?.paidAt
+                            ? new Date(item.paidAt).toLocaleString()
+                            : "—"}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-[#1e266d]">
+                          {formatCurrency(item?.amount)}
+                        </p>
+                        <span
+                          className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${getStatusStyle(
+                            item?.status === "Approved"
+                              ? "Paid"
+                              : item?.status === "Rejected"
+                              ? "Rejected"
+                              : "PendingVerification"
+                          )}`}
+                        >
+                          {item?.status || "—"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {item?.note ? (
+                      <p className="text-sm text-gray-600 mt-3">
+                        <span className="font-semibold">Note:</span> {item.note}
+                      </p>
+                    ) : null}
+
+                    {item?.receipt?.url ? (
+                      <div className="mt-3">
+                        <a
+                          href={item.receipt.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 text-sm font-semibold hover:bg-gray-50"
+                        >
+                          <FaReceipt />
+                          View Receipt
+                        </a>
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => setHistoryOpen(false)}
+                className="px-6 py-2.5 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {rejectModalOpen && rejectRow && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-[#1e266d]">Reject Payment</h2>
-              <button onClick={() => setRejectModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl">
+              <button
+                onClick={() => setRejectModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
                 ×
               </button>
             </div>
 
             <p className="text-sm text-gray-600">
-              <b>{rejectRow.reservationNumber}</b> • Rs {Number(rejectRow.amount || 0).toLocaleString()}
+              <b>{rejectRow.reservationNumber}</b> •{" "}
+              {formatCurrency(rejectRow.totalAmount)}
             </p>
 
             <div className="mt-3">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Reject Reason *</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Reject Reason *
+              </label>
               <textarea
                 value={rejectNote}
                 onChange={(e) => setRejectNote(e.target.value)}
@@ -654,11 +1186,11 @@ const Payments = () => {
                 Cancel
               </button>
               <button
-                disabled={submitting}
+                disabled={actionLoading}
                 onClick={rejectInvoice}
                 className="px-6 py-2.5 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
               >
-                {submitting ? "Working..." : "Reject"}
+                {actionLoading ? "Working..." : "Reject"}
               </button>
             </div>
           </div>

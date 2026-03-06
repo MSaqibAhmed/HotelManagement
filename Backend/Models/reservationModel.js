@@ -56,33 +56,49 @@ const reservationSchema = new mongoose.Schema(
       index: true,
     },
 
-    // ✅ payment (billing later; keep structure now)
     payment: {
-      method: {
-        type: String,
-        enum: ["Cash", "Online"],
-        required: true,
-      },
-      status: {
-        type: String,
-        enum: ["Pending", "Paid", "Rejected"],
-        default: "Pending",
-        index: true,
-      },
-      amount: {
-        type: Number,
-        required: true,
-        min: 0,
-      },
-      receipt: {
-        url: { type: String, default: "" },
-        public_id: { type: String, default: "" },
-      },
-      note: { type: String, default: "" },
-      confirmedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
-      confirmedAt: { type: Date, default: null },
-    },
-
+  method: {
+    type: String,
+    enum: ["Cash", "Online"],
+    default: "Cash",
+  },
+  status: {
+    type: String,
+    enum: [
+      "Pending",
+      "PendingVerification",
+      "PartiallyPaid",
+      "Paid",
+      "Rejected",
+    ],
+    default: "Pending",
+  },
+  amount: {
+    type: Number,
+    default: 0,
+  },
+  paidAmount: {
+    type: Number,
+    default: 0,
+  },
+  remainingAmount: {
+    type: Number,
+    default: 0,
+  },
+  receipt: {
+    url: { type: String, default: "" },
+    public_id: { type: String, default: "" },
+  },
+  confirmedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    default: null,
+  },
+  confirmedAt: {
+    type: Date,
+    default: null,
+  },
+},
     guestsCount: {
       adults: { type: Number, default: 1, min: 1 },
       children: { type: Number, default: 0, min: 0 },

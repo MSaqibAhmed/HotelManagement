@@ -1,22 +1,63 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FaPlus, FaSearch, FaEye, FaTimes } from "react-icons/fa";
+import {
+  FaPlus,
+  FaSearch,
+  FaEye,
+  FaTimes,
+  FaBed,
+  FaTools,
+  FaBroom,
+  FaClipboardList,
+} from "react-icons/fa";
 import { toast } from "react-toastify";
 import api from "../../../api";
 
 const INITIAL_FORM_DATA = {
   serviceType: "Housekeeping",
+  title: "",
   description: "",
   priority: "Normal",
-  roomNumber: "",
+  category: "Cleaning",
 };
 
-const STATUS_OPTIONS = ["All", "Pending", "Approved", "Assigned", "Completed", "Rejected", "Cancelled"];
+const STATUS_OPTIONS = [
+  "All",
+  "Pending",
+  "Assigned",
+  "In-Progress",
+  "Completed",
+  "Cancelled",
+];
+
+const HOUSEKEEPING_CATEGORIES = [
+  "Cleaning",
+  "Laundry",
+  "Supplies",
+  "Room Setup",
+  "Other",
+];
+
+const MAINTENANCE_CATEGORIES = [
+  "Electrical",
+  "Plumbing",
+  "HVAC",
+  "Carpentry",
+  "Appliances",
+  "Other",
+];
+
+const HOUSEKEEPING_PRIORITIES = ["Low", "Normal", "High"];
+const MAINTENANCE_PRIORITIES = ["Low", "Medium", "High"];
 
 const RequestServices = () => {
   const [serviceRequests, setServiceRequests] = useState([]);
+  const [currentStay, setCurrentStay] = useState(null);
+
   const [loading, setLoading] = useState(false);
+  const [stayLoading, setStayLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [cancelLoadingId, setCancelLoadingId] = useState("");
+
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
@@ -30,11 +71,71 @@ const RequestServices = () => {
 
   const itemsPerPage = 5;
 
+  const getUserFromStorage = () => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "{}");
+    } catch {
+      return {};
+    }
+  };
+
+  const user = useMemo(() => getUserFromStorage(), []);
+  const role = String(user?.role || "").toLowerCase();
+  const isGuest = role === "guest";
+
+  const formatDate = (value) => {
+    if (!value) return "N/A";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "N/A";
+    return date.toLocaleDateString();
+  };
+
+  const normalizeStatus = (status) => {
+    const value = String(status || "").toLowerCase();
+
+    if (value === "pending") return "Pending";
+    if (value === "assigned") return "Assigned";
+    if (value === "in-progress" || value === "in progress") return "In-Progress";
+    if (value === "completed") return "Completed";
+    if (value === "cancelled" || value === "canceled") return "Cancelled";
+
+    return status || "Pending";
+  };
+
+  const normalizeServiceRequest = (item) => ({
+    _id: item?._id,
+    requestNumber: item?.requestNumber || `REQ-${String(item?._id || "").slice(-4)}`,
+    serviceType: item?.serviceType || "Housekeeping",
+    title: item?.title || "",
+    description: item?.description || "",
+    location: item?.location || "",
+    category: item?.category || "Other",
+    priority: item?.priority || "Normal",
+    status: normalizeStatus(item?.status),
+    assignedTo: item?.assignedTo || null,
+    room: item?.room || null,
+    createdAt: item?.createdAt || "",
+    updatedAt: item?.updatedAt || "",
+  });
+
+  const fetchCurrentStay = async () => {
+    try {
+      setStayLoading(true);
+      const { data } = await api.get("/guest/current-stay");
+      setCurrentStay(data?.stay || null);
+    } catch (err) {
+      setCurrentStay(null);
+    } finally {
+      setStayLoading(false);
+    }
+  };
+
   const fetchServiceRequests = async () => {
     try {
       setLoading(true);
-      const { data } = await api.get("/housekeeping-requests/my");
-      setServiceRequests(data?.requests || []);
+      const { data } = await api.get("/guest/service-requests");
+      const raw = data?.requests || [];
+      setServiceRequests(raw.map(normalizeServiceRequest));
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to fetch service requests");
       setServiceRequests([]);
@@ -44,21 +145,22 @@ const RequestServices = () => {
   };
 
   useEffect(() => {
-    fetchServiceRequests();
-  }, []);
+    if (isGuest) {
+      fetchCurrentStay();
+      fetchServiceRequests();
+    }
+  }, [isGuest]);
 
   const getStatusStyle = (status) => {
     switch (status) {
       case "Pending":
         return "bg-amber-50 text-amber-600 border border-amber-200";
-      case "Approved":
-        return "bg-blue-50 text-blue-600 border border-blue-200";
       case "Assigned":
         return "bg-indigo-50 text-indigo-600 border border-indigo-200";
+      case "In-Progress":
+        return "bg-blue-50 text-blue-600 border border-blue-200";
       case "Completed":
         return "bg-emerald-50 text-emerald-600 border border-emerald-200";
-      case "Rejected":
-        return "bg-red-50 text-red-600 border border-red-200";
       case "Cancelled":
         return "bg-gray-100 text-gray-600 border border-gray-200";
       default:
@@ -67,14 +169,14 @@ const RequestServices = () => {
   };
 
   const getPriorityStyle = (priority) => {
-    switch (priority) {
-      case "Urgent":
-        return "bg-orange-50 text-orange-600";
-      case "High":
+    switch (String(priority || "").toLowerCase()) {
+      case "high":
         return "bg-red-50 text-red-600";
-      case "Normal":
+      case "medium":
+        return "bg-orange-50 text-orange-600";
+      case "normal":
         return "bg-gray-100 text-gray-700";
-      case "Low":
+      case "low":
         return "bg-slate-100 text-slate-600";
       default:
         return "bg-gray-100 text-gray-700";
@@ -86,18 +188,24 @@ const RequestServices = () => {
 
     return serviceRequests.filter((request) => {
       const requestNumber = String(request?.requestNumber || "").toLowerCase();
-      const roomNumber = String(request?.roomSnapshot?.roomNumber || "").toLowerCase();
+      const roomNumber = String(request?.room?.roomNumber || "").toLowerCase();
       const description = String(request?.description || "").toLowerCase();
+      const title = String(request?.title || "").toLowerCase();
       const priority = String(request?.priority || "").toLowerCase();
       const status = String(request?.status || "").toLowerCase();
+      const serviceType = String(request?.serviceType || "").toLowerCase();
+      const category = String(request?.category || "").toLowerCase();
 
       const matchesSearch =
         !q ||
         requestNumber.includes(q) ||
         roomNumber.includes(q) ||
         description.includes(q) ||
+        title.includes(q) ||
         priority.includes(q) ||
-        status.includes(q);
+        status.includes(q) ||
+        serviceType.includes(q) ||
+        category.includes(q);
 
       const matchesStatus =
         statusFilter === "All" || String(request?.status || "") === statusFilter;
@@ -106,24 +214,58 @@ const RequestServices = () => {
     });
   }, [serviceRequests, searchTerm, statusFilter]);
 
-  const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(filteredRequests.length / itemsPerPage));
 
   const paginatedRequests = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredRequests.slice(start, start + itemsPerPage);
   }, [filteredRequests, currentPage]);
 
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
+  const stats = useMemo(() => {
+    return {
+      total: serviceRequests.length,
+      pending: serviceRequests.filter((r) => r.status === "Pending").length,
+      inProgress: serviceRequests.filter((r) => r.status === "In-Progress").length,
+      completed: serviceRequests.filter((r) => r.status === "Completed").length,
+    };
+  }, [serviceRequests]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    setFormData((prev) => {
+      const updated = { ...prev, [name]: value };
+
+      if (name === "serviceType") {
+        if (value === "Housekeeping") {
+          updated.priority = "Normal";
+          updated.category = "Cleaning";
+        } else {
+          updated.priority = "Medium";
+          updated.category = "Electrical";
+        }
+      }
+
+      return updated;
+    });
+
     setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.roomNumber.trim()) {
-      newErrors.roomNumber = "Room number is required";
+    if (!currentStay) {
+      toast.error("Only checked-in guests can request services");
+      return false;
+    }
+
+    if (!formData.title.trim()) {
+      newErrors.title = "Title is required";
     }
 
     if (!formData.description.trim()) {
@@ -148,15 +290,19 @@ const RequestServices = () => {
       setSubmitLoading(true);
 
       const payload = {
-        roomNumber: formData.roomNumber.trim(),
+        serviceType: formData.serviceType,
+        title: formData.title.trim(),
         description: formData.description.trim(),
         priority: formData.priority,
+        category: formData.category,
       };
 
-      const { data } = await api.post("/housekeeping-requests", payload);
+      const { data } = await api.post("/guest/service-requests", payload);
 
-      setServiceRequests((prev) => [data.request, ...prev]);
-      toast.success(data?.message || "Housekeeping request submitted successfully");
+      const newRequest = normalizeServiceRequest(data?.request || {});
+      setServiceRequests((prev) => [newRequest, ...prev]);
+
+      toast.success(data?.message || "Service request submitted successfully");
 
       setShowForm(false);
       resetForm();
@@ -168,33 +314,36 @@ const RequestServices = () => {
     }
   };
 
-  const handleView = async (request) => {
-    try {
-      const { data } = await api.get(`/housekeeping-requests/${request._id}`);
-      setSelectedRequest(data?.request || request);
-      setShowModal(true);
-    } catch (err) {
-      toast.error(err?.response?.data?.message || "Failed to fetch request details");
-    }
+  const handleView = (request) => {
+    setSelectedRequest(request);
+    setShowModal(true);
   };
 
   const handleCancelRequest = async (request) => {
     const ok = window.confirm(
-      `Cancel housekeeping request ${request?.requestNumber || ""}?`
+      `Cancel ${request?.serviceType} request ${request?.requestNumber || ""}?`
     );
     if (!ok) return;
 
     try {
       setCancelLoadingId(request._id);
 
-      const { data } = await api.patch(`/housekeeping-requests/${request._id}/cancel`);
+      const { data } = await api.patch(
+        `/guest/service-requests/${request.serviceType}/${request._id}/cancel`
+      );
 
       setServiceRequests((prev) =>
-        prev.map((item) => (item._id === request._id ? data.request : item))
+        prev.map((item) =>
+          item._id === request._id
+            ? { ...item, status: "Cancelled" }
+            : item
+        )
       );
 
       if (selectedRequest?._id === request._id) {
-        setSelectedRequest(data.request);
+        setSelectedRequest((prev) =>
+          prev ? { ...prev, status: "Cancelled" } : prev
+        );
       }
 
       toast.success(data?.message || "Request cancelled successfully");
@@ -205,7 +354,27 @@ const RequestServices = () => {
     }
   };
 
-  const canCancel = (request) => String(request?.status || "") === "Pending";
+  const canCancel = (request) =>
+    ["Pending", "Assigned"].includes(String(request?.status || ""));
+
+  const isHousekeeping = formData.serviceType === "Housekeeping";
+  const currentCategories = isHousekeeping
+    ? HOUSEKEEPING_CATEGORIES
+    : MAINTENANCE_CATEGORIES;
+  const currentPriorities = isHousekeeping
+    ? HOUSEKEEPING_PRIORITIES
+    : MAINTENANCE_PRIORITIES;
+
+  if (!isGuest) {
+    return (
+      <div className="bg-white rounded-xl border border-red-200 shadow-sm p-8 text-center">
+        <p className="text-lg font-semibold text-red-600">Access Denied</p>
+        <p className="text-sm text-gray-500 mt-2">
+          This page is only available for guest accounts.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -213,12 +382,18 @@ const RequestServices = () => {
         <div>
           <h1 className="text-2xl font-bold text-[#1e266d]">Request Services</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Submit and track your housekeeping requests
+            Request housekeeping or maintenance service during your stay
           </p>
         </div>
 
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => {
+            if (!currentStay) {
+              toast.error("Only checked-in guests can request services");
+              return;
+            }
+            setShowForm(true);
+          }}
           className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#1e1e1e] text-white font-bold rounded-xl hover:bg-black transition shadow-xl w-full sm:w-auto"
         >
           <FaPlus className="w-4 h-4" />
@@ -227,12 +402,89 @@ const RequestServices = () => {
       </div>
 
       <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-xl bg-[#1e266d]/10 flex items-center justify-center text-[#1e266d] shrink-0">
+            <FaBed className="w-5 h-5" />
+          </div>
+
+          <div className="flex-1">
+            <h3 className="font-semibold text-gray-800">Current Stay</h3>
+
+            {stayLoading ? (
+              <p className="text-sm text-gray-500 mt-1">Loading stay details...</p>
+            ) : currentStay ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Reservation</p>
+                  <p className="text-sm font-medium text-gray-800">
+                    {currentStay?.reservationNumber || "N/A"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Room Number</p>
+                  <p className="text-sm font-medium text-gray-800">
+                    {currentStay?.room?.roomNumber || "N/A"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Room Type</p>
+                  <p className="text-sm font-medium text-gray-800">
+                    {currentStay?.room?.roomType || "N/A"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Check-Out</p>
+                  <p className="text-sm font-medium text-gray-800">
+                    {formatDate(currentStay?.checkOutDate)}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-2">
+                <p className="text-sm text-red-600 font-medium">
+                  No checked-in stay found.
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Service requests can only be created by checked-in guests.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
+          <p className="text-sm text-gray-500">Total Requests</p>
+          <p className="text-2xl font-bold text-[#1e266d] mt-1">{stats.total}</p>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
+          <p className="text-sm text-gray-500">Pending</p>
+          <p className="text-2xl font-bold text-amber-600 mt-1">{stats.pending}</p>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
+          <p className="text-sm text-gray-500">In Progress</p>
+          <p className="text-2xl font-bold text-blue-600 mt-1">{stats.inProgress}</p>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
+          <p className="text-sm text-gray-500">Completed</p>
+          <p className="text-2xl font-bold text-emerald-600 mt-1">{stats.completed}</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
         <div className="flex flex-col lg:flex-row gap-4 lg:items-center">
           <div className="flex-1 relative">
             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by request no, room number, status or description..."
+              placeholder="Search by request no, type, room, category, status or title..."
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -269,7 +521,7 @@ const RequestServices = () => {
         ) : (
           <>
             <div className="hidden lg:block overflow-x-auto">
-              <table className="w-full min-w-[900px]">
+              <table className="w-full min-w-[1050px]">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
@@ -277,6 +529,9 @@ const RequestServices = () => {
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
                       Service Type
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                      Title
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
                       Room
@@ -299,8 +554,14 @@ const RequestServices = () => {
                 <tbody className="divide-y divide-gray-200">
                   {paginatedRequests.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="text-center py-16">
-                        <p className="text-gray-500 font-medium">No service requests found</p>
+                      <td colSpan="8" className="text-center py-16">
+                        <div className="flex flex-col items-center">
+                          <FaClipboardList className="w-12 h-12 text-gray-300 mb-3" />
+                          <p className="text-gray-500 font-medium">No service requests found</p>
+                          <p className="text-sm text-gray-400 mt-1">
+                            Your guest service requests will appear here
+                          </p>
+                        </div>
                       </td>
                     </tr>
                   ) : (
@@ -308,19 +569,29 @@ const RequestServices = () => {
                       <tr key={request._id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
                           <p className="font-semibold text-gray-800">
-                            {request.requestNumber || `REQ-${String(request._id).slice(-4)}`}
+                            {request.requestNumber}
                           </p>
                         </td>
 
                         <td className="px-6 py-4">
-                          <p className="text-sm text-gray-700">
-                            {request.serviceType || "Housekeeping"}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            {request.serviceType === "Maintenance" ? (
+                              <FaTools className="text-[#1e266d]" />
+                            ) : (
+                              <FaBroom className="text-[#1e266d]" />
+                            )}
+                            <p className="text-sm text-gray-700">{request.serviceType}</p>
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-medium text-gray-800">{request.title}</p>
+                          <p className="text-xs text-gray-500">{request.category}</p>
                         </td>
 
                         <td className="px-6 py-4">
                           <p className="text-sm text-gray-700">
-                            {request?.roomSnapshot?.roomNumber || "N/A"}
+                            {request?.room?.roomNumber || currentStay?.room?.roomNumber || "N/A"}
                           </p>
                         </td>
 
@@ -345,9 +616,7 @@ const RequestServices = () => {
                         </td>
 
                         <td className="px-6 py-4">
-                          <p className="text-sm text-gray-700">
-                            {request.requestedAt?.split("T")[0] || request.createdAt?.split("T")[0]}
-                          </p>
+                          <p className="text-sm text-gray-700">{formatDate(request.createdAt)}</p>
                         </td>
 
                         <td className="px-6 py-4">
@@ -382,6 +651,7 @@ const RequestServices = () => {
             <div className="lg:hidden">
               {paginatedRequests.length === 0 ? (
                 <div className="text-center py-16 px-4">
+                  <FaClipboardList className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-500 font-medium">No service requests found</p>
                 </div>
               ) : (
@@ -391,12 +661,12 @@ const RequestServices = () => {
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-gradient-to-br from-[#1e266d] to-[#1e1e1e] rounded-full flex items-center justify-center text-white font-semibold">
-                            H
+                            {request.serviceType === "Maintenance" ? "M" : "H"}
                           </div>
                           <div>
-                            <p className="font-medium text-gray-800">Housekeeping</p>
+                            <p className="font-medium text-gray-800">{request.serviceType}</p>
                             <p className="text-xs text-gray-500">
-                              Room {request?.roomSnapshot?.roomNumber || "N/A"}
+                              Room {request?.room?.roomNumber || "N/A"}
                             </p>
                           </div>
                         </div>
@@ -410,6 +680,11 @@ const RequestServices = () => {
                         </span>
                       </div>
 
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{request.title}</p>
+                        <p className="text-xs text-gray-500 mt-1">{request.category}</p>
+                      </div>
+
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <div>
                           <p className="text-gray-400 text-xs mb-1">Priority</p>
@@ -417,9 +692,7 @@ const RequestServices = () => {
                         </div>
                         <div>
                           <p className="text-gray-400 text-xs mb-1">Date</p>
-                          <p className="text-gray-700">
-                            {request.requestedAt?.split("T")[0] || request.createdAt?.split("T")[0]}
-                          </p>
+                          <p className="text-gray-700">{formatDate(request.createdAt)}</p>
                         </div>
                       </div>
 
@@ -494,7 +767,7 @@ const RequestServices = () => {
 
       {showForm && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
-          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl p-6">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-[#1e266d]">New Service Request</h2>
               <button
@@ -508,110 +781,178 @@ const RequestServices = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Service Type *
-                  </label>
-                  <input
-                    type="text"
-                    value="Housekeeping"
-                    disabled
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-100 text-gray-600 outline-none"
-                  />
+            {!currentStay ? (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                <p className="text-sm text-red-600 font-medium">
+                  No checked-in stay found. You must be checked-in to request services.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Room Auto Details</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase font-semibold">Reservation</p>
+                      <p className="text-sm font-medium text-gray-800">
+                        {currentStay?.reservationNumber || "N/A"}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase font-semibold">Room Number</p>
+                      <p className="text-sm font-medium text-gray-800">
+                        {currentStay?.room?.roomNumber || "N/A"}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase font-semibold">Room Type</p>
+                      <p className="text-sm font-medium text-gray-800">
+                        {currentStay?.room?.roomType || "N/A"}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Room Number *
-                  </label>
-                  <input
-                    type="text"
-                    name="roomNumber"
-                    value={formData.roomNumber}
-                    onChange={handleChange}
-                    placeholder="e.g. 101"
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none ${
-                      errors.roomNumber ? "border-red-500" : "border-gray-200"
-                    }`}
-                  />
-                  {errors.roomNumber && (
-                    <p className="text-red-500 text-xs font-semibold mt-2">
-                      {errors.roomNumber}
-                    </p>
-                  )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Service Type *
+                    </label>
+                    <select
+                      name="serviceType"
+                      value={formData.serviceType}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none bg-white"
+                    >
+                      <option value="Housekeeping">Housekeeping</option>
+                      <option value="Maintenance">Maintenance</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Category *
+                    </label>
+                    <select
+                      name="category"
+                      value={formData.category}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none bg-white"
+                    >
+                      {currentCategories.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Priority
+                    </label>
+                    <select
+                      name="priority"
+                      value={formData.priority}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none bg-white"
+                    >
+                      {currentPriorities.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Title *
+                    </label>
+                    <input
+                      type="text"
+                      name="title"
+                      value={formData.title}
+                      onChange={handleChange}
+                      placeholder={
+                        formData.serviceType === "Housekeeping"
+                          ? "e.g. Room cleaning needed"
+                          : "e.g. AC not cooling"
+                      }
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none ${
+                        errors.title ? "border-red-500" : "border-gray-200"
+                      }`}
+                    />
+                    {errors.title && (
+                      <p className="text-red-500 text-xs font-semibold mt-2">
+                        {errors.title}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Description *
+                    </label>
+                    <textarea
+                      name="description"
+                      value={formData.description}
+                      onChange={handleChange}
+                      rows="4"
+                      placeholder={
+                        formData.serviceType === "Housekeeping"
+                          ? "Describe your housekeeping request..."
+                          : "Describe the maintenance issue..."
+                      }
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none resize-none ${
+                        errors.description ? "border-red-500" : "border-gray-200"
+                      }`}
+                    />
+                    {errors.description && (
+                      <p className="text-red-500 text-xs font-semibold mt-2">
+                        {errors.description}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Priority
-                  </label>
-                  <select
-                    name="priority"
-                    value={formData.priority}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none bg-white"
+                <div className="flex justify-end gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForm(false);
+                      resetForm();
+                    }}
+                    className="px-6 py-2.5 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50"
                   >
-                    <option value="Low">Low</option>
-                    <option value="Normal">Normal</option>
-                    <option value="High">High</option>
-                    <option value="Urgent">Urgent</option>
-                  </select>
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={submitLoading}
+                    className="px-6 py-2.5 bg-[#1e1e1e] text-white rounded-xl font-bold hover:bg-black disabled:opacity-60"
+                  >
+                    {submitLoading ? "Submitting..." : "Submit Request"}
+                  </button>
                 </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Description *
-                  </label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleChange}
-                    rows="4"
-                    placeholder="Describe your housekeeping request..."
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none resize-none ${
-                      errors.description ? "border-red-500" : "border-gray-200"
-                    }`}
-                  />
-                  {errors.description && (
-                    <p className="text-red-500 text-xs font-semibold mt-2">
-                      {errors.description}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowForm(false);
-                    resetForm();
-                  }}
-                  className="px-6 py-2.5 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={submitLoading}
-                  className="px-6 py-2.5 bg-[#1e1e1e] text-white rounded-xl font-bold hover:bg-black disabled:opacity-60"
-                >
-                  {submitLoading ? "Submitting..." : "Submit Request"}
-                </button>
-              </div>
-            </form>
+              </form>
+            )}
           </div>
         </div>
       )}
 
       {showModal && selectedRequest && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl p-6">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-[#1e266d]">Service Request Details</h2>
+              <div>
+                <h2 className="text-2xl font-bold text-[#1e266d]">Service Request Details</h2>
+                <p className="text-sm text-gray-500 mt-1">{selectedRequest.requestNumber}</p>
+              </div>
+
               <button
                 onClick={() => {
                   setShowModal(false);
@@ -627,9 +968,7 @@ const RequestServices = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs text-gray-500 uppercase font-semibold">Request ID</p>
-                  <p className="font-semibold text-gray-800">
-                    {selectedRequest.requestNumber || `REQ-${String(selectedRequest._id).slice(-4)}`}
-                  </p>
+                  <p className="font-semibold text-gray-800">{selectedRequest.requestNumber}</p>
                 </div>
 
                 <div>
@@ -645,16 +984,19 @@ const RequestServices = () => {
 
                 <div>
                   <p className="text-xs text-gray-500 uppercase font-semibold">Service Type</p>
-                  <p className="font-medium text-gray-800">
-                    {selectedRequest.serviceType || "Housekeeping"}
-                  </p>
+                  <p className="font-medium text-gray-800">{selectedRequest.serviceType}</p>
                 </div>
 
                 <div>
                   <p className="text-xs text-gray-500 uppercase font-semibold">Room Number</p>
                   <p className="font-medium text-gray-800">
-                    {selectedRequest?.roomSnapshot?.roomNumber || "N/A"}
+                    {selectedRequest?.room?.roomNumber || "N/A"}
                   </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Category</p>
+                  <p className="font-medium text-gray-800">{selectedRequest.category}</p>
                 </div>
 
                 <div>
@@ -665,10 +1007,21 @@ const RequestServices = () => {
                 <div>
                   <p className="text-xs text-gray-500 uppercase font-semibold">Requested Date</p>
                   <p className="font-medium text-gray-800">
-                    {selectedRequest.requestedAt?.split("T")[0] ||
-                      selectedRequest.createdAt?.split("T")[0]}
+                    {formatDate(selectedRequest.createdAt)}
                   </p>
                 </div>
+
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Assigned To</p>
+                  <p className="font-medium text-gray-800">
+                    {selectedRequest?.assignedTo?.name || "Not assigned"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-gray-200">
+                <p className="text-xs text-gray-500 uppercase font-semibold mb-2">Title</p>
+                <p className="text-sm text-gray-700">{selectedRequest.title}</p>
               </div>
 
               <div className="pt-4 border-t border-gray-200">
@@ -676,10 +1029,10 @@ const RequestServices = () => {
                 <p className="text-sm text-gray-700">{selectedRequest.description}</p>
               </div>
 
-              {selectedRequest.note ? (
+              {selectedRequest.location ? (
                 <div className="pt-4 border-t border-gray-200">
-                  <p className="text-xs text-gray-500 uppercase font-semibold mb-2">Note</p>
-                  <p className="text-sm text-gray-700">{selectedRequest.note}</p>
+                  <p className="text-xs text-gray-500 uppercase font-semibold mb-2">Location</p>
+                  <p className="text-sm text-gray-700">{selectedRequest.location}</p>
                 </div>
               ) : null}
             </div>

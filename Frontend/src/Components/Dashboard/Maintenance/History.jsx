@@ -1,15 +1,37 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FaHistory, FaSearch, FaFilter, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
+import {
+  FaHistory,
+  FaSearch,
+  FaFilter,
+  FaCheckCircle,
+  FaTimesCircle,
+  FaTools,
+  FaClock,
+  FaPlayCircle,
+} from "react-icons/fa";
 import { toast } from "react-toastify";
+import api from "../../../api";
 
-const dummyHistory = [
-  { _id: "3", title: "Broken Light", description: "Ceiling light is flickering", location: "Lobby", priority: "Medium", category: "Electrical", status: "completed", assignedTo: { name: "Mike Johnson" }, completedAt: new Date(Date.now() - 3 * 86400000).toISOString() },
-  { _id: "5", title: "Door Lock Jammed", description: "Cannot open door with card", location: "Room 410", priority: "High", category: "Carpentry", status: "cancelled", updatedAt: new Date(Date.now() - 5 * 86400000).toISOString() }
-];
+const getUserFromStorage = () => {
+  try {
+    return JSON.parse(localStorage.getItem("user") || "{}");
+  } catch {
+    return {};
+  }
+};
+
 const History = () => {
+  const user = useMemo(() => getUserFromStorage(), []);
+  const role = String(user?.role || "").toLowerCase();
+  const isMaintenance = role === "maintenance";
+
+  const [activeTasks, setActiveTasks] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState("");
+  const [tab, setTab] = useState(isMaintenance ? "active" : "history");
   const [currentPage, setCurrentPage] = useState(1);
+
   const [filters, setFilters] = useState({
     status: "all",
     priority: "all",
@@ -19,27 +41,47 @@ const History = () => {
 
   const itemsPerPage = 5;
 
-  // Fetch history from backend (mocked)
-  const fetchHistory = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setHistory(dummyHistory);
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+
+      if (isMaintenance) {
+        const [activeRes, historyRes] = await Promise.all([
+          api.get("/maintenance/my-tasks"),
+          api.get("/maintenance/my-tasks?type=history"),
+        ]);
+
+        setActiveTasks(activeRes?.data?.requests || []);
+        setHistory(historyRes?.data?.requests || []);
+      } else {
+        const res = await api.get("/maintenance/history");
+        setHistory(res?.data?.requests || []);
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to load maintenance data");
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   useEffect(() => {
-    fetchHistory();
+    fetchData();
   }, []);
 
-  // Search filter
-  const filteredHistory = useMemo(() => {
-    return history.filter((item) => {
+  const sourceData = useMemo(() => {
+    if (isMaintenance && tab === "active") return activeTasks;
+    return history;
+  }, [isMaintenance, tab, activeTasks, history]);
+
+  const filteredData = useMemo(() => {
+    return sourceData.filter((item) => {
       const q = filters.search.toLowerCase().trim();
+
       const matchesSearch =
         !filters.search ||
         item.title?.toLowerCase().includes(q) ||
-        item.location?.toLowerCase().includes(q);
+        item.location?.toLowerCase().includes(q) ||
+        item.requestNumber?.toLowerCase().includes(q);
 
       const matchesStatus =
         filters.status === "all" ||
@@ -55,18 +97,17 @@ const History = () => {
 
       return matchesSearch && matchesStatus && matchesPriority && matchesCategory;
     });
-  }, [history, filters]);
+  }, [sourceData, filters]);
 
-  // Pagination
-  const totalPages = Math.ceil(filteredHistory.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
-  const paginatedHistory = useMemo(() => {
+  const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
-    return filteredHistory.slice(start, start + itemsPerPage);
-  }, [filteredHistory, currentPage]);
+    return filteredData.slice(start, start + itemsPerPage);
+  }, [filteredData, currentPage]);
 
   const handleFilterChange = (key, value) => {
-    setFilters({ ...filters, [key]: value });
+    setFilters((prev) => ({ ...prev, [key]: value }));
     setCurrentPage(1);
   };
 
@@ -77,10 +118,55 @@ const History = () => {
       category: "all",
       search: "",
     });
+    setCurrentPage(1);
+  };
+
+  const handleTaskAction = async (task, nextStatus) => {
+    try {
+      setActionLoadingId(task._id);
+
+      const note =
+        nextStatus === "In-Progress"
+          ? "Work started by maintenance staff"
+          : "Maintenance work completed successfully";
+
+      await api.patch(`/maintenance/${task._id}/status`, {
+        status: nextStatus,
+        note,
+      });
+
+      toast.success(`Task ${nextStatus === "In-Progress" ? "started" : "completed"} successfully`);
+      fetchData();
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to update task");
+    } finally {
+      setActionLoadingId("");
+    }
   };
 
   const getStatusConfig = (status) => {
     switch (status?.toLowerCase()) {
+      case "pending":
+        return {
+          bg: "bg-yellow-100",
+          text: "text-yellow-800",
+          icon: FaClock,
+          label: "Pending",
+        };
+      case "assigned":
+        return {
+          bg: "bg-indigo-100",
+          text: "text-indigo-800",
+          icon: FaTools,
+          label: "Assigned",
+        };
+      case "in-progress":
+        return {
+          bg: "bg-blue-100",
+          text: "text-blue-800",
+          icon: FaPlayCircle,
+          label: "In Progress",
+        };
       case "completed":
         return {
           bg: "bg-green-100",
@@ -100,7 +186,7 @@ const History = () => {
           bg: "bg-gray-100",
           text: "text-gray-800",
           icon: FaHistory,
-          label: status,
+          label: status || "Unknown",
         };
     }
   };
@@ -118,42 +204,79 @@ const History = () => {
     }
   };
 
-  // Stats
   const stats = useMemo(() => {
     return {
-      total: history.length,
+      active: activeTasks.length,
+      totalHistory: history.length,
       completed: history.filter((r) => r.status?.toLowerCase() === "completed").length,
       cancelled: history.filter((r) => r.status?.toLowerCase() === "cancelled").length,
     };
-  }, [history]);
+  }, [activeTasks, history]);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-[#1e266d]">Maintenance History</h1>
+        <h1 className="text-2xl font-bold text-[#1e266d]">
+          {isMaintenance ? "My Maintenance Tasks" : "Maintenance History"}
+        </h1>
         <p className="text-sm text-gray-500 mt-1">
-          View completed and cancelled maintenance requests
+          {isMaintenance
+            ? "View your active assigned tasks and task history"
+            : "View completed and cancelled maintenance requests"}
         </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        {isMaintenance && (
+          <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
+            <p className="text-sm text-gray-500">Active Tasks</p>
+            <p className="text-2xl font-bold text-blue-600 mt-1">{stats.active}</p>
+          </div>
+        )}
+
         <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
-          <p className="text-sm text-gray-500">Total History</p>
-          <p className="text-2xl font-bold text-[#1e266d] mt-1">{stats.total}</p>
+          <p className="text-sm text-gray-500">History Total</p>
+          <p className="text-2xl font-bold text-[#1e266d] mt-1">{stats.totalHistory}</p>
         </div>
+
         <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
           <p className="text-sm text-gray-500">Completed</p>
           <p className="text-2xl font-bold text-green-600 mt-1">{stats.completed}</p>
         </div>
+
         <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
           <p className="text-sm text-gray-500">Cancelled</p>
           <p className="text-2xl font-bold text-red-600 mt-1">{stats.cancelled}</p>
         </div>
       </div>
 
-      {/* Filters Card */}
+      {isMaintenance && (
+        <div className="bg-white rounded-xl shadow-lg p-2 border border-gray-200 flex gap-2">
+          <button
+            onClick={() => {
+              setTab("active");
+              setCurrentPage(1);
+            }}
+            className={`flex-1 px-4 py-3 rounded-xl font-semibold transition ${
+              tab === "active" ? "bg-[#1e1e1e] text-white" : "text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            My Active Tasks
+          </button>
+          <button
+            onClick={() => {
+              setTab("history");
+              setCurrentPage(1);
+            }}
+            className={`flex-1 px-4 py-3 rounded-xl font-semibold transition ${
+              tab === "history" ? "bg-[#1e1e1e] text-white" : "text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            Task History
+          </button>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
         <div className="flex items-center gap-2 mb-4">
           <FaFilter className="text-gray-400" />
@@ -169,7 +292,7 @@ const History = () => {
                 type="text"
                 value={filters.search}
                 onChange={(e) => handleFilterChange("search", e.target.value)}
-                placeholder="Title or location..."
+                placeholder="Title, request no, location..."
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none bg-gray-50 text-sm"
               />
             </div>
@@ -183,6 +306,13 @@ const History = () => {
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none bg-white text-sm"
             >
               <option value="all">All Status</option>
+              {tab === "active" && isMaintenance && (
+                <>
+                  <option value="pending">Pending</option>
+                  <option value="assigned">Assigned</option>
+                  <option value="in-progress">In Progress</option>
+                </>
+              )}
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
             </select>
@@ -230,7 +360,6 @@ const History = () => {
         </div>
       </div>
 
-      {/* Table Card */}
       <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
         {loading ? (
           <div className="flex justify-center items-center py-20">
@@ -238,9 +367,8 @@ const History = () => {
           </div>
         ) : (
           <>
-            {/* Desktop Table */}
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full min-w-[900px]">
+              <table className="w-full min-w-[1200px]">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
@@ -262,53 +390,59 @@ const History = () => {
                       Assigned To
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
-                      Completed Date
+                      Room After
                     </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                      Date
+                    </th>
+                    {isMaintenance && tab === "active" && (
+                      <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">
+                        Actions
+                      </th>
+                    )}
                   </tr>
                 </thead>
 
                 <tbody className="divide-y divide-gray-200">
-                  {paginatedHistory.length === 0 ? (
+                  {paginatedData.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="text-center py-16">
+                      <td
+                        colSpan={isMaintenance && tab === "active" ? "9" : "8"}
+                        className="text-center py-16"
+                      >
                         <div className="flex flex-col items-center">
                           <FaHistory className="w-12 h-12 text-gray-300 mb-3" />
-                          <p className="text-gray-500 font-medium">No history found</p>
+                          <p className="text-gray-500 font-medium">No data found</p>
                           <p className="text-sm text-gray-400 mt-1">
-                            Completed or cancelled requests will appear here
+                            Maintenance records will appear here
                           </p>
                         </div>
                       </td>
                     </tr>
                   ) : (
-                    paginatedHistory.map((item) => {
+                    paginatedData.map((item) => {
                       const statusConfig = getStatusConfig(item.status);
                       const StatusIcon = statusConfig.icon;
                       const priorityConfig = getPriorityConfig(item.priority);
 
                       return (
                         <tr key={item._id} className="hover:bg-gray-50">
-                          {/* Request */}
                           <td className="px-6 py-4">
                             <div>
                               <p className="font-medium text-gray-800">{item.title}</p>
+                              <p className="text-xs text-gray-500">{item.requestNumber || "N/A"}</p>
                               <p className="text-xs text-gray-500 truncate max-w-xs">
                                 {item.description}
                               </p>
                             </div>
                           </td>
 
-                          {/* Location */}
-                          <td className="px-6 py-4">
-                            <p className="text-sm text-gray-700">{item.location}</p>
+                          <td className="px-6 py-4 text-sm text-gray-700">{item.location}</td>
+
+                          <td className="px-6 py-4 text-sm text-gray-700 capitalize">
+                            {item.category}
                           </td>
 
-                          {/* Category */}
-                          <td className="px-6 py-4">
-                            <p className="text-sm text-gray-700 capitalize">{item.category}</p>
-                          </td>
-
-                          {/* Priority */}
                           <td className="px-6 py-4">
                             <span
                               className={`inline-flex px-3 py-1 rounded-full text-xs font-medium capitalize ${priorityConfig.bg} ${priorityConfig.text}`}
@@ -317,7 +451,6 @@ const History = () => {
                             </span>
                           </td>
 
-                          {/* Status */}
                           <td className="px-6 py-4">
                             <span
                               className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium capitalize ${statusConfig.bg} ${statusConfig.text}`}
@@ -327,23 +460,49 @@ const History = () => {
                             </span>
                           </td>
 
-                          {/* Assigned To */}
-                          <td className="px-6 py-4">
-                            <p className="text-sm text-gray-700">
-                              {item.assignedTo?.name || "Unassigned"}
-                            </p>
+                          <td className="px-6 py-4 text-sm text-gray-700">
+                            {item.assignedTo?.name || "Unassigned"}
                           </td>
 
-                          {/* Completed Date */}
-                          <td className="px-6 py-4">
-                            <p className="text-sm text-gray-600">
-                              {item.completedAt
-                                ? new Date(item.completedAt).toLocaleDateString()
-                                : item.updatedAt
-                                  ? new Date(item.updatedAt).toLocaleDateString()
-                                  : "N/A"}
-                            </p>
+                          <td className="px-6 py-4 text-sm text-gray-700">
+                            {item.roomStatusAfter || item.room?.status || "N/A"}
                           </td>
+
+                          <td className="px-6 py-4 text-sm text-gray-600">
+                            {item.completedAt
+                              ? new Date(item.completedAt).toLocaleDateString()
+                              : item.cancelledAt
+                              ? new Date(item.cancelledAt).toLocaleDateString()
+                              : item.updatedAt
+                              ? new Date(item.updatedAt).toLocaleDateString()
+                              : "N/A"}
+                          </td>
+
+                          {isMaintenance && tab === "active" && (
+                            <td className="px-6 py-4">
+                              <div className="flex items-center justify-end gap-2">
+                                {["Pending", "Assigned"].includes(item.status) && (
+                                  <button
+                                    onClick={() => handleTaskAction(item, "In-Progress")}
+                                    disabled={actionLoadingId === item._id}
+                                    className="px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+                                  >
+                                    Start Work
+                                  </button>
+                                )}
+
+                                {["Assigned", "In-Progress"].includes(item.status) && (
+                                  <button
+                                    onClick={() => handleTaskAction(item, "Completed")}
+                                    disabled={actionLoadingId === item._id}
+                                    className="px-3 py-2 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 disabled:opacity-50"
+                                  >
+                                    Mark Complete
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       );
                     })
@@ -352,19 +511,18 @@ const History = () => {
               </table>
             </div>
 
-            {/* Mobile Cards */}
             <div className="md:hidden">
-              {paginatedHistory.length === 0 ? (
+              {paginatedData.length === 0 ? (
                 <div className="text-center py-16 px-4">
                   <FaHistory className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500 font-medium">No history found</p>
+                  <p className="text-gray-500 font-medium">No data found</p>
                   <p className="text-sm text-gray-400 mt-1">
-                    Completed or cancelled requests will appear here
+                    Maintenance records will appear here
                   </p>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-200">
-                  {paginatedHistory.map((item) => {
+                  {paginatedData.map((item) => {
                     const statusConfig = getStatusConfig(item.status);
                     const StatusIcon = statusConfig.icon;
                     const priorityConfig = getPriorityConfig(item.priority);
@@ -373,7 +531,8 @@ const History = () => {
                       <div key={item._id} className="p-4 space-y-3">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0 flex-1">
-                            <p className="font-medium text-gray-800 truncate">{item.title}</p>
+                            <p className="font-medium text-gray-800">{item.title}</p>
+                            <p className="text-xs text-gray-500">{item.requestNumber || "N/A"}</p>
                             <p className="text-xs text-gray-500 truncate">{item.location}</p>
                           </div>
                         </div>
@@ -383,6 +542,7 @@ const History = () => {
                             <p className="text-gray-400 text-xs mb-1">Category</p>
                             <p className="text-gray-700 capitalize">{item.category}</p>
                           </div>
+
                           <div>
                             <p className="text-gray-400 text-xs mb-1">Priority</p>
                             <span
@@ -391,6 +551,7 @@ const History = () => {
                               {item.priority}
                             </span>
                           </div>
+
                           <div>
                             <p className="text-gray-400 text-xs mb-1">Status</p>
                             <span
@@ -400,11 +561,54 @@ const History = () => {
                               {statusConfig.label}
                             </span>
                           </div>
+
                           <div>
                             <p className="text-gray-400 text-xs mb-1">Assigned To</p>
                             <p className="text-gray-700">{item.assignedTo?.name || "Unassigned"}</p>
                           </div>
+
+                          <div>
+                            <p className="text-gray-400 text-xs mb-1">Room After</p>
+                            <p className="text-gray-700">{item.roomStatusAfter || item.room?.status || "N/A"}</p>
+                          </div>
+
+                          <div>
+                            <p className="text-gray-400 text-xs mb-1">Date</p>
+                            <p className="text-gray-700">
+                              {item.completedAt
+                                ? new Date(item.completedAt).toLocaleDateString()
+                                : item.cancelledAt
+                                ? new Date(item.cancelledAt).toLocaleDateString()
+                                : item.updatedAt
+                                ? new Date(item.updatedAt).toLocaleDateString()
+                                : "N/A"}
+                            </p>
+                          </div>
                         </div>
+
+                        {isMaintenance && tab === "active" && (
+                          <div className="flex gap-2 pt-2">
+                            {["Pending", "Assigned"].includes(item.status) && (
+                              <button
+                                onClick={() => handleTaskAction(item, "In-Progress")}
+                                disabled={actionLoadingId === item._id}
+                                className="flex-1 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+                              >
+                                Start Work
+                              </button>
+                            )}
+
+                            {["Assigned", "In-Progress"].includes(item.status) && (
+                              <button
+                                onClick={() => handleTaskAction(item, "Completed")}
+                                disabled={actionLoadingId === item._id}
+                                className="flex-1 px-3 py-2 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 disabled:opacity-50"
+                              >
+                                Mark Complete
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -412,13 +616,12 @@ const History = () => {
               )}
             </div>
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="px-4 sm:px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
                 <p className="text-sm text-gray-500">
                   Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
-                  {Math.min(currentPage * itemsPerPage, filteredHistory.length)} of{" "}
-                  {filteredHistory.length}
+                  {Math.min(currentPage * itemsPerPage, filteredData.length)} of{" "}
+                  {filteredData.length}
                 </p>
 
                 <div className="flex flex-wrap gap-2">
@@ -434,10 +637,11 @@ const History = () => {
                     <button
                       key={page}
                       onClick={() => setCurrentPage(page)}
-                      className={`px-3 py-1.5 text-sm font-medium rounded-lg ${currentPage === page
-                        ? "bg-[#1e1e1e] text-white"
-                        : "border border-gray-200 hover:bg-gray-50"
-                        }`}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-lg ${
+                        currentPage === page
+                          ? "bg-[#1e1e1e] text-white"
+                          : "border border-gray-200 hover:bg-gray-50"
+                      }`}
                     >
                       {page}
                     </button>

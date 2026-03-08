@@ -41,7 +41,7 @@ const UpdateStatus = () => {
   const fetchRequests = async () => {
     try {
       setLoading(true);
-      const { data } = await api.get("/maintainence/active");
+      const { data } = await api.get("/maintenance/active");
       setRequests(data?.requests || []);
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to load requests");
@@ -152,7 +152,7 @@ const UpdateStatus = () => {
     try {
       setStatusUpdating(true);
 
-      await api.patch(`/maintainence/${selectedRequest._id}/status`, {
+      await api.patch(`/maintenance/${selectedRequest._id}/status`, {
         status: statusForm.status,
         note: statusForm.notes,
       });
@@ -178,7 +178,7 @@ const UpdateStatus = () => {
     try {
       setAssigning(true);
 
-      await api.patch(`/maintainence/${selectedRequest._id}/assign`, {
+      await api.patch(`/maintenance/${selectedRequest._id}/assign`, {
         assignedTo: assignForm.assignedTo,
       });
 
@@ -521,11 +521,10 @@ const UpdateStatus = () => {
                       onClick={() =>
                         setStatusForm((prev) => ({ ...prev, status: opt.value }))
                       }
-                      className={`px-4 py-3 rounded-xl text-sm font-semibold transition border-2 ${
-                        statusForm.status === opt.value
+                      className={`px-4 py-3 rounded-xl text-sm font-semibold transition border-2 ${statusForm.status === opt.value
                           ? "border-[#1e266d]"
                           : "border-transparent"
-                      } ${opt.bg} ${opt.text}`}
+                        } ${opt.bg} ${opt.text}`}
                     >
                       {opt.label}
                     </button>

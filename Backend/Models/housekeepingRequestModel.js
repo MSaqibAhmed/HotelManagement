@@ -134,6 +134,23 @@ const housekeepingRequestSchema = new mongoose.Schema(
       default: "",
     },
 
+    roomStatusBefore: {
+      type: String,
+      default: "",
+    },
+
+    roomStatusAfter: {
+      type: String,
+      default: "",
+    },
+
+    checklist: [
+      {
+        label: { type: String, trim: true, required: true },
+        isDone: { type: Boolean, default: false },
+      },
+    ],
+
     timeline: {
       type: [housekeepingTimelineSchema],
       default: [],
@@ -142,8 +159,8 @@ const housekeepingRequestSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-housekeepingRequestSchema.pre("save", async function (next) {
-  if (!this.isNew || this.requestNumber) return next();
+housekeepingRequestSchema.pre("save", async function () {
+  if (!this.isNew || this.requestNumber) return;
 
   const count = await this.constructor.countDocuments();
   this.requestNumber = `HK-${new Date().getFullYear()}-${String(count + 1).padStart(4, "0")}`;

@@ -3,6 +3,7 @@ import HousekeepingTask from "../Models/housekeepingModel.js";
 import Room from "../Models/roomModel.js";
 import User from "../Models/userModel.js";
 import Reservation from "../Models/reservationModel.js";
+import HousekeepingRequest from "../Models/housekeepingRequestModel.js";
 
 const isStaffRole = (role = "") =>
   ["admin", "manager", "receptionist", "housekeeping"].includes(String(role).toLowerCase());
@@ -92,18 +93,18 @@ export const createHousekeepingTask = async (req, res) => {
       priority: priority || "Medium",
       note: note || "",
       status: assignedUser ? "Assigned" : "Pending",
+      roomStatusBefore: room.status,
       checklist:
         Array.isArray(checklist) && checklist.length
           ? checklist.map((item) => ({
-              label: String(item.label || "").trim(),
-              isDone: Boolean(item.isDone),
-            }))
+            label: String(item.label || "").trim(),
+            isDone: Boolean(item.isDone),
+          }))
           : defaultChecklist,
     });
 
     if (room.status !== "Cleaning") {
-      room.status = "Cleaning";
-      await room.save();
+      await Room.findByIdAndUpdate(room._id, { status: "Cleaning" }, { runValidators: false });
     }
 
     const populatedTask = await HousekeepingTask.findById(task._id)
@@ -116,9 +117,10 @@ export const createHousekeepingTask = async (req, res) => {
       task: populatedTask,
     });
   } catch (error) {
+    require('fs').writeFileSync('latest_500_error.txt', error.stack || error.message);
     return res.status(500).json({
       message: "Failed to create housekeeping task",
-      error: error.message,
+      error: error.stack || error.message,
     });
   }
 };
@@ -309,17 +311,41 @@ export const updateHousekeepingTaskStatus = async (req, res) => {
 
     if (status === "Completed") {
       task.completedAt = new Date();
+      // Restore room status on completion
+      if (task.room && task.room._id) {
+        const roomToRestore = await Room.findById(task.room._id || task.room);
+        if (roomToRestore) {
+          const activeReservation = await Reservation.findOne({
+            room: roomToRestore._id,
+            bookingStatus: "Checked-In",
+          });
+          const restoredStatus = activeReservation ? "Occupied" : "Available";
+          task.roomStatusAfter = restoredStatus;
+          await Room.findByIdAndUpdate(roomToRestore._id, { status: restoredStatus }, { runValidators: false });
+        }
+      }
     }
 
     if (status === "Cancelled") {
       task.isActive = false;
+      // Also restore room on cancel
+      if (task.room) {
+        const roomToRestore = await Room.findById(task.room._id || task.room);
+        if (roomToRestore && roomToRestore.status === "Cleaning") {
+          const activeReservation = await Reservation.findOne({
+            room: roomToRestore._id,
+            bookingStatus: "Checked-In",
+          });
+          const resolvedStatus = activeReservation ? "Occupied" : "Available";
+          await Room.findByIdAndUpdate(roomToRestore._id, { status: resolvedStatus }, { runValidators: false });
+        }
+      }
     }
 
     if (status === "IssueReported") {
       task.issue.hasIssue = true;
       if (task.room) {
-        task.room.status = "Maintenance";
-        await task.room.save();
+        await Room.findByIdAndUpdate(task.room._id || task.room, { status: "Maintenance" }, { runValidators: false });
       }
     }
 
@@ -482,7 +508,8 @@ export const verifyHousekeepingTask = async (req, res) => {
       task.isActive = false;
 
       if (task.room) {
-        task.room.status = "Available";
+        task.room.status = task.roomStatusBefore || "Available";
+        task.roomStatusAfter = task.room.status;
         await task.room.save();
       }
     }
@@ -522,14 +549,24 @@ export const getHousekeepingRoomStatus = async (req, res) => {
       .populate("assignedTo", "name email role")
       .sort({ createdAt: -1 });
 
+    const activeRequests = await HousekeepingRequest.find({
+      status: "Pending",
+      assignedTo: null
+    }).sort({ createdAt: -1 });
+
     const mapped = rooms.map((room) => {
       const task = activeTasks.find(
+        (item) => String(item.room) === String(room._id)
+      );
+
+      const request = activeRequests.find(
         (item) => String(item.room) === String(room._id)
       );
 
       return {
         room,
         housekeepingTask: task || null,
+        guestRequest: request || null,
       };
     });
 
@@ -541,6 +578,37 @@ export const getHousekeepingRoomStatus = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       message: "Failed to fetch room status board",
+      error: error.message,
+    });
+  }
+};
+
+// GET ALL GUEST HOUSEKEEPING REQUESTS (for staff/admin)
+export const getGuestHousekeepingRequests = async (req, res) => {
+  try {
+    const { status } = req.query;
+
+    const query = {};
+    if (status) {
+      query.status = status;
+    } else {
+      query.status = { $in: ["Pending", "Assigned", "In-Progress"] };
+    }
+
+    const requests = await HousekeepingRequest.find(query)
+      .populate("guest", "name email phone")
+      .populate("room", "roomNumber roomType floor status")
+      .populate("assignedTo", "name email role")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      message: "Guest housekeeping requests fetched successfully",
+      count: requests.length,
+      requests,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to fetch guest housekeeping requests",
       error: error.message,
     });
   }
@@ -578,6 +646,7 @@ export const generateTasksForCleaningRooms = async (req, res) => {
         taskType: "CheckoutCleaning",
         priority: "Medium",
         status: "Pending",
+        roomStatusBefore: room.status,
         checklist: defaultChecklist,
       });
 

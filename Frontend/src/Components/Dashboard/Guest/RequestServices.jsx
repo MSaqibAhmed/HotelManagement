@@ -18,6 +18,11 @@ const INITIAL_FORM_DATA = {
   description: "",
   priority: "Normal",
   category: "Cleaning",
+  checklist: [
+    { label: "Change bedsheets", isDone: false },
+    { label: "Restock towels", isDone: false },
+    { label: "Clean washroom", isDone: false },
+  ],
 };
 
 const STATUS_OPTIONS = [
@@ -244,9 +249,11 @@ const RequestServices = () => {
         if (value === "Housekeeping") {
           updated.priority = "Normal";
           updated.category = "Cleaning";
+          updated.checklist = INITIAL_FORM_DATA.checklist;
         } else {
           updated.priority = "Medium";
           updated.category = "Electrical";
+          updated.checklist = [];
         }
       }
 
@@ -295,6 +302,7 @@ const RequestServices = () => {
         description: formData.description.trim(),
         priority: formData.priority,
         category: formData.category,
+        checklist: formData.serviceType === "Housekeeping" ? formData.checklist : undefined,
       };
 
       const { data } = await api.post("/guest/service-requests", payload);
@@ -741,11 +749,10 @@ const RequestServices = () => {
                     <button
                       key={page}
                       onClick={() => setCurrentPage(page)}
-                      className={`px-3 py-1.5 text-sm font-medium rounded-lg ${
-                        currentPage === page
+                      className={`px-3 py-1.5 text-sm font-medium rounded-lg ${currentPage === page
                           ? "bg-[#1e1e1e] text-white"
                           : "border border-gray-200 hover:bg-gray-50"
-                      }`}
+                        }`}
                     >
                       {page}
                     </button>
@@ -881,9 +888,8 @@ const RequestServices = () => {
                           ? "e.g. Room cleaning needed"
                           : "e.g. AC not cooling"
                       }
-                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none ${
-                        errors.title ? "border-red-500" : "border-gray-200"
-                      }`}
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none ${errors.title ? "border-red-500" : "border-gray-200"
+                        }`}
                     />
                     {errors.title && (
                       <p className="text-red-500 text-xs font-semibold mt-2">
@@ -906,9 +912,8 @@ const RequestServices = () => {
                           ? "Describe your housekeeping request..."
                           : "Describe the maintenance issue..."
                       }
-                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none resize-none ${
-                        errors.description ? "border-red-500" : "border-gray-200"
-                      }`}
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none resize-none ${errors.description ? "border-red-500" : "border-gray-200"
+                        }`}
                     />
                     {errors.description && (
                       <p className="text-red-500 text-xs font-semibold mt-2">
@@ -916,6 +921,63 @@ const RequestServices = () => {
                       </p>
                     )}
                   </div>
+
+                  {formData.serviceType === "Housekeeping" && (
+                    <div className="md:col-span-2 mt-2">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Housekeeping Checklist
+                      </label>
+                      <div className="bg-white border text-sm border-gray-200 rounded-xl p-3 space-y-2">
+                        {formData.checklist?.map((item, index) => (
+                          <div key={index} className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              checked={item.isDone}
+                              onChange={(e) => {
+                                const newChecklist = [...formData.checklist];
+                                newChecklist[index].isDone = e.target.checked;
+                                setFormData({ ...formData, checklist: newChecklist });
+                              }}
+                              className="w-4 h-4 accent-[#1e266d] bg-gray-100 border-gray-300 rounded"
+                            />
+                            <input
+                              type="text"
+                              value={item.label}
+                              onChange={(e) => {
+                                const newChecklist = [...formData.checklist];
+                                newChecklist[index].label = e.target.value;
+                                setFormData({ ...formData, checklist: newChecklist });
+                              }}
+                              className="flex-1 bg-transparent border-none outline-none text-gray-700 focus:ring-0 p-0"
+                              placeholder="Task name"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newChecklist = formData.checklist.filter((_, i) => i !== index);
+                                setFormData({ ...formData, checklist: newChecklist });
+                              }}
+                              className="text-gray-400 hover:text-red-500"
+                            >
+                              <FaTimes className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              checklist: [...(formData.checklist || []), { label: "", isDone: false }],
+                            });
+                          }}
+                          className="text-sm font-semibold text-[#1e266d] hover:text-blue-800 flex items-center gap-1 mt-2"
+                        >
+                          <FaPlus className="w-3 h-3" /> Add Item
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4">

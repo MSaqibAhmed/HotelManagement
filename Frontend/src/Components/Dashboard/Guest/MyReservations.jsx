@@ -7,6 +7,7 @@ import {
   FaPlus,
   FaCalendarCheck,
   FaEdit,
+  FaFileInvoice,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import api from "../../../api";
@@ -17,7 +18,9 @@ const INITIAL_FORM_DATA = {
   roomType: "Standard",
   checkInDate: "",
   checkOutDate: "",
-  guestsCount: 1,
+  adults: 1,
+  children: 0,
+  paymentMethod: "Cash",
   specialRequests: "",
 };
 
@@ -112,7 +115,8 @@ const MyReservations = () => {
       amount: Number(payment?.amount ?? item?.amount ?? 0),
       paymentStatus: payment?.status || item?.paymentStatus || "Pending",
       nights: Number(item?.nights || 0),
-      guestsCount: Number(item?.guestsCount || item?.guests || 1),
+      adults: Number(item?.adults || 1),
+      children: Number(item?.children || 0),
       specialRequests: item?.specialRequests || "",
       createdAt: item?.createdAt || "",
       reservationRaw: item,
@@ -163,6 +167,79 @@ const MyReservations = () => {
   const canModifyReservation = (reservation) => {
     const status = normalizeStatus(reservation?.status);
     return status === "Pending";
+  };
+
+  const canDownloadInvoice = (reservation) => {
+    const status = normalizeStatus(reservation?.status);
+    return ["Confirmed", "Checked-In", "Checked-Out"].includes(status);
+  };
+
+  const handleDownloadInvoice = (reservation) => {
+    const hotelName = "Grand Horizon Hotel";
+    const invoiceHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Invoice - ${reservation.reservationNumber}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
+          .header { text-align: center; border-bottom: 2px solid #1e266d; padding-bottom: 16px; margin-bottom: 24px; }
+          .hotel-name { font-size: 28px; font-weight: bold; color: #1e266d; margin: 0; }
+          .invoice-title { font-size: 16px; color: #666; margin: 6px 0 0; }
+          .section { margin-bottom: 20px; }
+          .section-title { font-size: 13px; font-weight: bold; color: #1e266d; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; }
+          .row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px; }
+          .row label { color: #666; }
+          .row span { font-weight: 600; color: #111; }
+          .total-row { border-top: 2px solid #1e266d; margin-top: 10px; padding-top: 10px; }
+          .total-row span { color: #1e266d; font-size: 20px; }
+          .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #999; }
+          @media print { body { margin: 20px; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <p class="hotel-name">${hotelName}</p>
+          <p class="invoice-title">Reservation Invoice</p>
+        </div>
+        <div class="section">
+          <div class="section-title">Reservation Details</div>
+          <div class="row"><label>Reservation No</label><span>${reservation.reservationNumber}</span></div>
+          <div class="row"><label>Status</label><span>${reservation.status}</span></div>
+          <div class="row"><label>Created</label><span>${formatDate(reservation.createdAt)}</span></div>
+        </div>
+        <div class="section">
+          <div class="section-title">Guest</div>
+          <div class="row"><label>Name</label><span>${reservation.guestName}</span></div>
+          <div class="row"><label>Email</label><span>${reservation.guestEmail || "N/A"}</span></div>
+        </div>
+        <div class="section">
+          <div class="section-title">Room</div>
+          <div class="row"><label>Room Type</label><span>${reservation.roomType}</span></div>
+          <div class="row"><label>Room Number</label><span>${reservation.roomNumber}</span></div>
+          <div class="row"><label>Check-In</label><span>${formatDate(reservation.checkInDate)}</span></div>
+          <div class="row"><label>Check-Out</label><span>${formatDate(reservation.checkOutDate)}</span></div>
+          <div class="row"><label>Nights</label><span>${reservation.nights}</span></div>
+          <div class="row"><label>Guests</label><span>${reservation.adults} Adults, ${reservation.children} Children</span></div>
+        </div>
+        <div class="section">
+          <div class="section-title">Payment</div>
+          <div class="row"><label>Payment Status</label><span>${reservation.paymentStatus}</span></div>
+          <div class="row total-row"><label><b>Total Amount</b></label><span><b>Rs ${Number(reservation.amount || 0).toLocaleString()}</b></span></div>
+        </div>
+        <div class="footer">Thank you for choosing ${hotelName}. We hope to see you again!</div>
+      </body>
+      </html>
+    `;
+    const win = window.open("", "_blank", "width=700,height=900");
+    if (win) {
+      win.document.write(invoiceHTML);
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 500);
+    } else {
+      toast.error("Pop-up blocked. Please allow pop-ups for invoice printing.");
+    }
   };
 
   const filteredReservations = useMemo(() => {
@@ -243,9 +320,25 @@ const MyReservations = () => {
 
   const handleReservationFormChange = (e) => {
     const { name, value } = e.target;
+
+    if (name === "adults" || name === "children") {
+      let num = value === "" ? "" : Number(value);
+      if (num === "") {
+        setReservationForm((prev) => ({ ...prev, [name]: "" }));
+        setFormErrors((prev) => ({ ...prev, [name]: "" }));
+        return;
+      }
+      if (Number.isNaN(num)) num = 0;
+      if (name === "adults") num = Math.max(1, Math.min(10, num));
+      if (name === "children") num = Math.max(0, Math.min(10, num));
+      setReservationForm((prev) => ({ ...prev, [name]: num }));
+      setFormErrors((prev) => ({ ...prev, [name]: "" }));
+      return;
+    }
+
     setReservationForm((prev) => ({
       ...prev,
-      [name]: name === "guestsCount" ? Number(value) : value,
+      [name]: value,
     }));
     setFormErrors((prev) => ({ ...prev, [name]: "" }));
   };
@@ -270,7 +363,9 @@ const MyReservations = () => {
       roomType: reservation.roomType || "Standard",
       checkInDate: reservation.checkInDate ? new Date(reservation.checkInDate).toISOString().split("T")[0] : "",
       checkOutDate: reservation.checkOutDate ? new Date(reservation.checkOutDate).toISOString().split("T")[0] : "",
-      guestsCount: reservation.guestsCount || 1,
+      adults: reservation.adults || 1,
+      children: reservation.children || 0,
+      paymentMethod: reservation.paymentMethod || "Cash",
       specialRequests: reservation.specialRequests || "",
     });
     setFormErrors({});
@@ -298,8 +393,8 @@ const MyReservations = () => {
       errors.checkOutDate = "Check-out date is required";
     }
 
-    if (!reservationForm.guestsCount || Number(reservationForm.guestsCount) < 1) {
-      errors.guestsCount = "Guests count must be at least 1";
+    if (!reservationForm.adults || Number(reservationForm.adults) < 1) {
+      errors.adults = "Adults count must be at least 1";
     }
 
     if (
@@ -320,14 +415,15 @@ const MyReservations = () => {
     try {
       setPreviewLoading(true);
 
-      const { data } = await api.get("/guest/reservations/preview", {
-        params: {
-          roomType: reservationForm.roomType,
-          checkInDate: toLocalMidnight(reservationForm.checkInDate),
-          checkOutDate: toLocalMidnight(reservationForm.checkOutDate),
-          guestsCount: reservationForm.guestsCount,
-        },
+      const qs = new URLSearchParams({
+        roomType: reservationForm.roomType,
+        checkInDate: toLocalMidnight(reservationForm.checkInDate),
+        checkOutDate: toLocalMidnight(reservationForm.checkOutDate),
+        adults: String(Number(reservationForm.adults || 1)),
+        children: String(Number(reservationForm.children || 0)),
       });
+
+      const { data } = await api.get(`/reservation/preview?${qs.toString()}`);
 
       setPreviewData(data || null);
       toast.success("Reservation preview loaded");
@@ -351,7 +447,9 @@ const MyReservations = () => {
         roomType: reservationForm.roomType,
         checkInDate: toLocalMidnight(reservationForm.checkInDate),
         checkOutDate: toLocalMidnight(reservationForm.checkOutDate),
-        guestsCount: reservationForm.guestsCount,
+        adults: Number(reservationForm.adults || 1),
+        children: Number(reservationForm.children || 0),
+        paymentMethod: reservationForm.paymentMethod || "Cash",
         specialRequests: reservationForm.specialRequests.trim(),
       };
 
@@ -359,8 +457,8 @@ const MyReservations = () => {
         await api.put(`/guest/reservations/${editingReservationId}`, payload);
         toast.success("Reservation updated successfully");
       } else {
-        await api.post("/guest/reservations", payload);
-        toast.success("Reservation created successfully");
+        await api.post("/reservation/create", payload);
+        toast.success("Reservation created successfully! Pending confirmation.");
       }
 
       closeReservationModal();
@@ -369,7 +467,7 @@ const MyReservations = () => {
     } catch (error) {
       toast.error(
         error?.response?.data?.message ||
-          (isEditMode ? "Failed to update reservation" : "Failed to create reservation")
+        (isEditMode ? "Failed to update reservation" : "Failed to create reservation")
       );
     } finally {
       setSubmitLoading(false);
@@ -534,7 +632,7 @@ const MyReservations = () => {
                         </td>
 
                         <td className="px-6 py-4">
-                          <p className="text-sm text-gray-700">{res.guestsCount}</p>
+                          <p className="text-sm text-gray-700">{res.adults + res.children}</p>
                         </td>
 
                         <td className="px-6 py-4">
@@ -560,6 +658,16 @@ const MyReservations = () => {
                             >
                               <FaEye className="w-4 h-4" />
                             </button>
+
+                            {canDownloadInvoice(res) && (
+                              <button
+                                onClick={() => handleDownloadInvoice(res)}
+                                className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg"
+                                title="Download Invoice"
+                              >
+                                <FaFileInvoice className="w-4 h-4" />
+                              </button>
+                            )}
 
                             {canModifyReservation(res) && (
                               <button
@@ -633,7 +741,7 @@ const MyReservations = () => {
 
                         <div>
                           <p className="text-gray-400 text-xs mb-1">Guests</p>
-                          <p className="text-gray-700">{res.guestsCount}</p>
+                          <p className="text-gray-700">{res.adults + res.children}</p>
                         </div>
 
                         <div>
@@ -696,11 +804,10 @@ const MyReservations = () => {
                     <button
                       key={page}
                       onClick={() => setCurrentPage(page)}
-                      className={`px-3 py-1.5 text-sm font-medium rounded-lg ${
-                        currentPage === page
-                          ? "bg-[#1e1e1e] text-white"
-                          : "border border-gray-200 hover:bg-gray-50"
-                      }`}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-lg ${currentPage === page
+                        ? "bg-[#1e1e1e] text-white"
+                        : "border border-gray-200 hover:bg-gray-50"
+                        }`}
                     >
                       {page}
                     </button>
@@ -766,9 +873,8 @@ const MyReservations = () => {
                     name="roomType"
                     value={reservationForm.roomType}
                     onChange={handleReservationFormChange}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none bg-white ${
-                      formErrors.roomType ? "border-red-500" : "border-gray-200"
-                    }`}
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none bg-white ${formErrors.roomType ? "border-red-500" : "border-gray-200"
+                      }`}
                   >
                     {ROOM_TYPES.map((type) => (
                       <option key={type} value={type}>
@@ -783,21 +889,56 @@ const MyReservations = () => {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Guests Count *
+                    Payment Method *
+                  </label>
+                  <select
+                    name="paymentMethod"
+                    value={reservationForm.paymentMethod}
+                    onChange={handleReservationFormChange}
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none ${formErrors.paymentMethod ? "border-red-500" : "border-gray-200"
+                      }`}
+                  >
+                    <option value="Cash">Cash</option>
+                    <option value="Online">Online</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Adults *
                   </label>
                   <input
                     type="number"
                     min="1"
-                    name="guestsCount"
-                    value={reservationForm.guestsCount}
+                    name="adults"
+                    value={reservationForm.adults}
                     onChange={handleReservationFormChange}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none ${
-                      formErrors.guestsCount ? "border-red-500" : "border-gray-200"
-                    }`}
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none ${formErrors.adults ? "border-red-500" : "border-gray-200"
+                      }`}
                   />
-                  {formErrors.guestsCount && (
+                  {formErrors.adults && (
                     <p className="text-red-500 text-xs font-semibold mt-2">
-                      {formErrors.guestsCount}
+                      {formErrors.adults}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Children
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    name="children"
+                    value={reservationForm.children}
+                    onChange={handleReservationFormChange}
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none ${formErrors.children ? "border-red-500" : "border-gray-200"
+                      }`}
+                  />
+                  {formErrors.children && (
+                    <p className="text-red-500 text-xs font-semibold mt-2">
+                      {formErrors.children}
                     </p>
                   )}
                 </div>
@@ -812,9 +953,8 @@ const MyReservations = () => {
                     value={reservationForm.checkInDate}
                     onChange={handleReservationFormChange}
                     min={today}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none ${
-                      formErrors.checkInDate ? "border-red-500" : "border-gray-200"
-                    }`}
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none ${formErrors.checkInDate ? "border-red-500" : "border-gray-200"
+                      }`}
                   />
                   {formErrors.checkInDate && (
                     <p className="text-red-500 text-xs font-semibold mt-2">
@@ -833,9 +973,8 @@ const MyReservations = () => {
                     value={reservationForm.checkOutDate}
                     onChange={handleReservationFormChange}
                     min={reservationForm.checkInDate || today}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none ${
-                      formErrors.checkOutDate ? "border-red-500" : "border-gray-200"
-                    }`}
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1e266d] outline-none ${formErrors.checkOutDate ? "border-red-500" : "border-gray-200"
+                      }`}
                   />
                   {formErrors.checkOutDate && (
                     <p className="text-red-500 text-xs font-semibold mt-2">
@@ -879,33 +1018,57 @@ const MyReservations = () => {
                 </div>
 
                 {previewData && (
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-200">
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase font-semibold">Room Type</p>
-                      <p className="text-sm font-medium text-gray-800">
-                        {previewData?.roomType || reservationForm.roomType}
-                      </p>
+                  <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500 uppercase font-semibold">Room Type</p>
+                        <p className="text-sm font-medium text-gray-800">
+                          {previewData?.selectedRoom?.roomType || reservationForm.roomType}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-gray-500 uppercase font-semibold">Available Room</p>
+                        <p className="text-sm font-medium text-gray-800">
+                          {previewData?.selectedRoom?.roomNumber || "Available"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-gray-500 uppercase font-semibold">Nights</p>
+                        <p className="text-sm font-medium text-gray-800">
+                          {previewData?.nights || 0}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-gray-500 uppercase font-semibold">Capacity</p>
+                        <p className="text-sm font-medium text-gray-800">
+                          {previewData?.selectedRoom?.capacity || "—"} persons
+                        </p>
+                      </div>
                     </div>
 
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase font-semibold">Available Room</p>
-                      <p className="text-sm font-medium text-gray-800">
-                        {previewData?.room?.roomNumber || previewData?.selectedRoom?.roomNumber || "Available"}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase font-semibold">Nights</p>
-                      <p className="text-sm font-medium text-gray-800">
-                        {previewData?.nights || 0}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase font-semibold">Estimated Amount</p>
-                      <p className="text-sm font-bold text-[#1e266d]">
-                        {formatCurrency(previewData?.amount || 0)}
-                      </p>
+                    {/* Pricing breakdown */}
+                    <div className="bg-white rounded-xl border border-gray-200 p-3 space-y-1.5">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Base Price</span>
+                        <span className="font-medium">Rs {Number(previewData?.selectedRoom?.basePrice || 0).toLocaleString()} / night</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Total Persons</span>
+                        <span className="font-medium">{previewData?.totalPersons || 0}</span>
+                      </div>
+                      {Number(previewData?.extraPersons) > 0 && (
+                        <div className="flex justify-between text-sm text-amber-700">
+                          <span>Extra Persons ({previewData.extraPersons} × Rs 500/night × {previewData.nights} nights)</span>
+                          <span className="font-medium">Rs {Number(previewData.extraCharge || 0).toLocaleString()}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm font-bold border-t border-gray-200 pt-1.5 mt-1.5">
+                        <span className="text-[#1e266d]">Total Estimated Amount</span>
+                        <span className="text-[#1e266d] text-base">{formatCurrency(previewData?.amount || 0)}</span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -931,8 +1094,8 @@ const MyReservations = () => {
                       ? "Updating..."
                       : "Creating..."
                     : isEditMode
-                    ? "Update Reservation"
-                    : "Create Reservation"}
+                      ? "Update Reservation"
+                      : "Create Reservation"}
                 </button>
               </div>
             </form>
@@ -1034,7 +1197,7 @@ const MyReservations = () => {
                     <div>
                       <p className="text-xs text-gray-500 uppercase font-semibold">Guests</p>
                       <p className="font-medium text-gray-800">
-                        {selectedReservation.guestsCount} guests
+                        {selectedReservation.adults} Adults, {selectedReservation.children} Children
                       </p>
                     </div>
 
@@ -1073,6 +1236,16 @@ const MyReservations = () => {
                 </div>
 
                 <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+                  {canDownloadInvoice(selectedReservation) && (
+                    <button
+                      onClick={() => handleDownloadInvoice(selectedReservation)}
+                      className="px-6 py-2.5 bg-emerald-50 text-emerald-700 rounded-xl font-semibold hover:bg-emerald-100 flex items-center gap-2"
+                    >
+                      <FaFileInvoice className="w-4 h-4" />
+                      Download Invoice
+                    </button>
+                  )}
+
                   {canModifyReservation(selectedReservation) && (
                     <button
                       onClick={() => {

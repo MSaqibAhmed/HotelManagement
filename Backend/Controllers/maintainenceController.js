@@ -380,16 +380,18 @@ export const updateMaintenanceStatus = async (req, res) => {
       if (room) {
         if (["Assigned", "In-Progress"].includes(normalizedStatus)) {
           if (!request.roomStatusBefore) request.roomStatusBefore = room.status;
-          room.status = "Maintenance";
           request.roomStatusAfter = "Maintenance";
-          await room.save();
+          await Room.findByIdAndUpdate(room._id, { status: "Maintenance" }, { runValidators: false });
         }
 
         if (["Completed", "Cancelled"].includes(normalizedStatus)) {
-          const resolvedStatus = await getResolvedRoomStatus(room._id);
-          room.status = resolvedStatus;
+          const activeReservation = await Reservation.findOne({
+            room: room._id,
+            bookingStatus: "Checked-In",
+          });
+          const resolvedStatus = activeReservation ? "Occupied" : "Available";
           request.roomStatusAfter = resolvedStatus;
-          await room.save();
+          await Room.findByIdAndUpdate(room._id, { status: resolvedStatus }, { runValidators: false });
         }
       }
     }

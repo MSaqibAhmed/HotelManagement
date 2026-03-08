@@ -12,7 +12,9 @@ import {
   verifyHousekeepingTask,
   getHousekeepingRoomStatus,
   generateTasksForCleaningRooms,
+  getGuestHousekeepingRequests,
 } from "../Controllers/housekeepingController.js";
+import { updateHousekeepingRequestStatus } from "../Controllers/guestController.js";
 
 const housekeepingRouter = express.Router();
 
@@ -45,7 +47,7 @@ housekeepingRouter.get(
 );
 
 // create task
-housekeepingRouter.post(    
+housekeepingRouter.post(
   "/tasks",
   protect,
   authorizeRoles("admin", "manager", "receptionist"),
@@ -106,6 +108,22 @@ housekeepingRouter.patch(
   protect,
   authorizeRoles("admin", "manager", "receptionist"),
   verifyHousekeepingTask
+);
+
+// get all guest housekeeping requests (for staff assignment)
+housekeepingRouter.get(
+  "/guest-requests",
+  protect,
+  authorizeRoles("admin", "manager", "receptionist", "housekeeping"),
+  getGuestHousekeepingRequests
+);
+
+// update guest housekeeping request status (called from Assign dashboard)
+housekeepingRouter.patch(
+  "/guest-requests/:id/status",
+  protect,
+  authorizeRoles("admin", "manager", "receptionist"),
+  updateHousekeepingRequestStatus
 );
 
 export default housekeepingRouter;

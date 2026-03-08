@@ -98,6 +98,16 @@ const housekeepingTaskSchema = new mongoose.Schema(
       default: "CheckoutCleaning",
     },
 
+    roomStatusBefore: {
+      type: String,
+      default: "",
+    },
+
+    roomStatusAfter: {
+      type: String,
+      default: "",
+    },
+
     status: {
       type: String,
       enum: ["Pending", "Assigned", "InProgress", "Completed", "Verified", "IssueReported", "Cancelled"],
@@ -193,11 +203,12 @@ const housekeepingTaskSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-housekeepingTaskSchema.pre("save", async function () {
+housekeepingTaskSchema.pre("save", function (next) {
   if (!this.taskNumber) {
     const random = Math.floor(1000 + Math.random() * 9000);
     this.taskNumber = `HK-${Date.now()}-${random}`;
   }
+  next();
 });
 
 housekeepingTaskSchema.index({ room: 1, status: 1 });

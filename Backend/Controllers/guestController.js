@@ -98,6 +98,7 @@ export const createGuestServiceRequest = async (req, res) => {
     const roomNumber = reservation.room?.roomNumber || reservation.roomSnapshot?.roomNumber || "";
     const roomType = reservation.room?.roomType || reservation.roomSnapshot?.roomType || "";
     const floor = reservation.room?.floor || reservation.roomSnapshot?.floor || 0;
+    const roomStatusBefore = reservation.room?.status || "Occupied";
 
     if (!roomId) {
       return res.status(400).json({
@@ -128,6 +129,11 @@ export const createGuestServiceRequest = async (req, res) => {
         category: category || "Cleaning",
         priority: normalizePriority(priority),
         status: "Pending",
+        roomStatusBefore: roomStatusBefore,
+        checklist: Array.isArray(req.body.checklist) ? req.body.checklist.map(item => ({
+          label: String(item.label || "").trim(),
+          isDone: Boolean(item.isDone)
+        })) : [],
         timeline: [
           {
             status: "Pending",
@@ -156,6 +162,7 @@ export const createGuestServiceRequest = async (req, res) => {
       category: category || "Other",
       priority: normalizeMaintenancePriority(priority),
       status: "Pending",
+      roomStatusBefore: roomStatusBefore,
       requestedBy: req.user._id,
       requestedByRole: "guest",
       timeline: [
@@ -317,6 +324,32 @@ export const cancelMyServiceRequest = async (req, res) => {
     res.status(500).json({
       message: error.message || "Failed to cancel service request",
     });
+  }
+};
+
+export const updateHousekeepingRequestStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const allowed = ["Pending", "Assigned", "In-Progress", "Completed", "Cancelled"];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+
+    const request = await HousekeepingRequest.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    );
+
+    if (!request) {
+      return res.status(404).json({ message: "Housekeeping request not found" });
+    }
+
+    res.json({ message: "Status updated", request });
+  } catch (error) {
+    res.status(500).json({ message: error.message || "Failed to update status" });
   }
 };
 

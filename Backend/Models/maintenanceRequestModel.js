@@ -145,8 +145,8 @@ const maintenanceRequestSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-maintenanceRequestSchema.pre("save", async function (next) {
-  if (!this.isNew || this.requestNumber) return next();
+maintenanceRequestSchema.pre("save", async function () {
+  if (!this.isNew || this.requestNumber) return;
 
   const count = await this.constructor.countDocuments();
   this.requestNumber = `MNT-${new Date().getFullYear()}-${String(count + 1).padStart(4, "0")}`;

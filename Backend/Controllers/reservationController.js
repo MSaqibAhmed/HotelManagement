@@ -1,6 +1,7 @@
 import Reservation from "../Models/reservationModel.js";
 import Room from "../Models/roomModel.js";
 import User from "../Models/userModel.js";
+import HousekeepingTask from "../Models/housekeepingModel.js";
 
 const EXTRA_PERSON_CHARGE_PER_NIGHT = 500;
 
@@ -564,13 +565,143 @@ export const checkOutReservation = async (req, res) => {
     if (!room) return res.status(404).json({ message: "Room not found" });
 
     reservation.bookingStatus = "Checked-Out";
+    const statusBefore = room.status;
     room.status = "Cleaning";
 
     await reservation.save();
     await room.save();
 
+    // Auto-assign housekeeping
+    try {
+      const housekeepers = await User.find({ role: "housekeeping", isActive: true });
+      let assignedUser = null;
+
+      if (housekeepers.length > 0) {
+        // Find housekeeper with least active tasks
+        const tasks = await HousekeepingTask.aggregate([
+          { $match: { status: { $in: ["Pending", "Assigned", "InProgress"] } } },
+          { $group: { _id: "$assignedTo", count: { $sum: 1 } } }
+        ]);
+
+        const assignedCounts = {};
+        tasks.forEach(t => {
+          if (t._id) assignedCounts[t._id.toString()] = t.count;
+        });
+
+        housekeepers.sort((a, b) => {
+          const countA = assignedCounts[a._id.toString()] || 0;
+          const countB = assignedCounts[b._id.toString()] || 0;
+          return countA - countB;
+        });
+
+        assignedUser = housekeepers[0]._id;
+      }
+
+      await HousekeepingTask.create({
+        room: room._id,
+        roomSnapshot: {
+          roomNumber: room.roomNumber || "",
+          roomName: room.roomName || "",
+          roomType: room.roomType || "",
+          floor: room.floor || 0,
+        },
+        reservation: reservation._id,
+        assignedTo: assignedUser,
+        assignedBy: req.user._id,
+        taskType: "CheckoutCleaning",
+        priority: "Medium",
+        note: "Auto-generated on checkout",
+        status: assignedUser ? "Assigned" : "Pending",
+        roomStatusBefore: statusBefore,
+        checklist: [
+          { label: "Bedsheet changed", isDone: false },
+          { label: "Washroom cleaned", isDone: false },
+          { label: "Floor cleaned", isDone: false },
+          { label: "Dusting completed", isDone: false },
+          { label: "Amenities restocked", isDone: false },
+          { label: "Towels replaced", isDone: false },
+        ]
+      });
+    } catch (hkError) {
+      console.error("Failed to auto-generate housekeeping task:", hkError);
+    }
+
     return res.json({ message: "Checked-out successfully", reservation, room });
   } catch (error) {
     return res.status(500).json({ message: "Check-out failed", error: error.message });
+  }
+};
+
+// ✅ Guest update their own Pending reservation
+export const updateGuestReservation = async (req, res) => {
+  try {
+    if (!ensureAuth(req, res)) return;
+
+    const { id } = req.params;
+    const { roomType, checkInDate, checkOutDate, adults, children, specialRequests, paymentMethod } = req.body;
+
+    const reservation = await Reservation.findOne({ _id: id, guest: req.user._id });
+
+    if (!reservation) {
+      return res.status(404).json({ message: "Reservation not found or not owned by you" });
+    }
+
+    if (reservation.bookingStatus !== "Pending") {
+      return res.status(400).json({ message: "Only Pending reservations can be modified" });
+    }
+
+    const newRoomType = roomType || reservation.roomType;
+    const datesParsed = parseDates(
+      checkInDate || reservation.checkInDate,
+      checkOutDate || reservation.checkOutDate
+    );
+    if (!datesParsed.ok) return res.status(400).json({ message: datesParsed.message });
+
+    const { inDate, outDate } = datesParsed;
+
+    // Re-pick room if type or dates changed
+    let room;
+    const typeChanged = newRoomType !== reservation.roomType;
+    const datesChanged =
+      new Date(checkInDate).getTime() !== new Date(reservation.checkInDate).getTime() ||
+      new Date(checkOutDate).getTime() !== new Date(reservation.checkOutDate).getTime();
+
+    if (typeChanged || datesChanged) {
+      room = await pickAvailableRoom({
+        roomType: newRoomType,
+        inDate,
+        outDate,
+        excludeReservationId: reservation._id,
+      });
+      if (!room) return res.status(400).json({ message: "No available room for the selected type/dates" });
+    } else {
+      room = await Room.findById(reservation.room);
+    }
+
+    const counts = sanitizeCounts(adults ?? reservation.adults, children ?? reservation.children);
+    const nights = calcNights(inDate, outDate);
+    const pricing = computeAmount({ room, nights, adults: counts.adults, children: counts.children });
+
+    reservation.roomType = newRoomType;
+    reservation.room = room._id;
+    reservation.checkInDate = inDate;
+    reservation.checkOutDate = outDate;
+    reservation.nights = nights;
+    reservation.adults = counts.adults;
+    reservation.children = counts.children;
+    if (specialRequests !== undefined) reservation.specialRequests = specialRequests.trim();
+    if (paymentMethod) reservation.payment.method = paymentMethod;
+    reservation.payment.amount = pricing.amount;
+    reservation.roomSnapshot = {
+      roomNumber: room.roomNumber,
+      roomType: room.roomType,
+      floor: room.floor,
+    };
+
+    await reservation.save();
+
+    return res.json({ message: "Reservation updated successfully", reservation });
+  } catch (error) {
+    return res.status(500).json({ message: "Update failed", error: error.message });
   }
 };

@@ -156,7 +156,6 @@ const DashboardSidebar = ({ open, setOpen, collapsed, setCollapsed }) => {
         { title: "Assigned Tasks", path: "/dashboard/housekeeping/assigned-tasks", icon: <FaTasks /> },
         { title: "Cleaning Report", path: "/dashboard/housekeeping/cleaning-report", icon: <FaChartBar /> },
         { title: "Checklist", path: "/dashboard/housekeeping/checklist", icon: <FaClipboardList /> },
-        { title: "Room QR Codes", path: "/dashboard/housekeeping/room-qr-list", icon: <FaQrcode /> },
       ],
     },
     {

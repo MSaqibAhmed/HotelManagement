@@ -33,7 +33,6 @@ import Cleaning from "./Components/Dashboard/HouseKeeping/Cleaning";
 import Assign from "./Components/Dashboard/HouseKeeping/Assign";
 import CleaningReport from "./Components/Dashboard/HouseKeeping/CleaningReport";
 import HousekeepingChecklist from "./Components/Dashboard/HouseKeeping/HousekeepingChecklist";
-import RoomQRList from "./Components/Dashboard/HouseKeeping/RoomQRList";
 
 import MaintenanceRequests from "./Components/Dashboard/Maintenance/MaintenanceRequests";
 import UpdateStatus from "./Components/Dashboard/Maintenance/UpdateStatus";
@@ -89,8 +88,6 @@ function App() {
           <Route path="housekeeping/assigned-tasks" element={<Assign />} />
           <Route path="housekeeping/cleaning-report" element={<CleaningReport />} />
           <Route path="housekeeping/checklist" element={<HousekeepingChecklist />} />
-          <Route path="housekeeping/room-qr-list" element={<RoomQRList />} />
-
           {/* Maintenance Routes */}
           <Route path="maintenance/requests" element={<MaintenanceRequests />} />
           <Route path="maintenance/update-status" element={<UpdateStatus />} />

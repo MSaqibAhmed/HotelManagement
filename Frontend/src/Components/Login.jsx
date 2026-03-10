@@ -71,7 +71,12 @@ const Login = () => {
       toast.success("Login Successful");
 
       setTimeout(() => {
-        navigate("/dashboard");
+        const userRole = res.data.user?.role?.toLowerCase() || "";
+        if (userRole === "guest") {
+          navigate("/");
+        } else {
+          navigate("/dashboard");
+        }
       }, 900);
     } catch (err) {
       toast.error(err.response?.data?.message || "Login failed");

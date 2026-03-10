@@ -117,8 +117,8 @@ const housekeepingTaskSchema = new mongoose.Schema(
 
     priority: {
       type: String,
-      enum: ["Low", "Medium", "High", "Urgent"],
-      default: "Medium",
+      enum: ["Normal", "Medium", "High", "Urgent"],
+      default: "Normal",
     },
 
     assignedTo: {
@@ -203,13 +203,7 @@ const housekeepingTaskSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-housekeepingTaskSchema.pre("save", function (next) {
-  if (!this.taskNumber) {
-    const random = Math.floor(1000 + Math.random() * 9000);
-    this.taskNumber = `HK-${Date.now()}-${random}`;
-  }
-  next();
-});
+
 
 housekeepingTaskSchema.index({ room: 1, status: 1 });
 housekeepingTaskSchema.index({ assignedTo: 1, status: 1, createdAt: -1 });

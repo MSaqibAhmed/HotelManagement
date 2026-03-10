@@ -19,8 +19,6 @@ const defaultChecklist = [
   { label: "Amenities restocked", isDone: false },
   { label: "Towels replaced", isDone: false },
 ];
-
-// CREATE TASK
 export const createHousekeepingTask = async (req, res) => {
   try {
     const {
@@ -90,7 +88,7 @@ export const createHousekeepingTask = async (req, res) => {
       assignedTo: assignedUser?._id || null,
       assignedBy: req.user._id,
       taskType: taskType || "CheckoutCleaning",
-      priority: priority || "Medium",
+      priority: priority,
       note: note || "",
       status: assignedUser ? "Assigned" : "Pending",
       roomStatusBefore: room.status,
@@ -117,7 +115,6 @@ export const createHousekeepingTask = async (req, res) => {
       task: populatedTask,
     });
   } catch (error) {
-    require('fs').writeFileSync('latest_500_error.txt', error.stack || error.message);
     return res.status(500).json({
       message: "Failed to create housekeeping task",
       error: error.stack || error.message,
@@ -137,6 +134,7 @@ export const getHousekeepingTasks = async (req, res) => {
       search,
       mine,
     } = req.query;
+
 
     const query = { isActive: true };
 
@@ -426,6 +424,7 @@ export const submitCleaningReport = async (req, res) => {
       issueType,
       issueDescription,
       markIssueReported,
+      checklist,
     } = req.body;
 
     const task = await HousekeepingTask.findById(id).populate("room");
@@ -451,6 +450,13 @@ export const submitCleaningReport = async (req, res) => {
       lostAndFoundNote: lostAndFoundNote || "",
     };
 
+    if (Array.isArray(checklist)) {
+      task.checklist = checklist.map((item) => ({
+        label: String(item.label || "").trim(),
+        isDone: Boolean(item.isDone),
+      }));
+    }
+
     if (markIssueReported) {
       task.status = "IssueReported";
       task.issue = {
@@ -466,6 +472,17 @@ export const submitCleaningReport = async (req, res) => {
     } else {
       task.status = "Completed";
       task.completedAt = new Date();
+
+      if (task.room) {
+        const activeReservation = await Reservation.findOne({
+          room: task.room._id,
+          bookingStatus: "Checked-In",
+        });
+        const restoredStatus = activeReservation ? "Occupied" : "Available";
+        task.roomStatusAfter = restoredStatus;
+        task.room.status = restoredStatus;
+        await task.room.save();
+      }
     }
 
     await task.save();
@@ -482,7 +499,6 @@ export const submitCleaningReport = async (req, res) => {
   }
 };
 
-// VERIFY TASK
 export const verifyHousekeepingTask = async (req, res) => {
   try {
     const { id } = req.params;

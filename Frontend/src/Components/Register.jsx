@@ -32,13 +32,13 @@ const Register = () => {
     const email = (formData.email || "").trim();
     const phone = (formData.phone || "").trim();
     const password = (formData.password || "").trim();
-    const address = (formData.address || "").trim();
+    const confirmPassword = (formData.confirmPassword || "").trim();
 
     if (!name) newErrors.name = "Full Name is required";
     if (!email) newErrors.email = "Email is required";
     if (!phone) newErrors.phone = "Phone is required";
     if (!password) newErrors.password = "Password is required";
-    if (!address) newErrors.address = "Address is required";
+    if (!confirmPassword) newErrors.confirmPassword = "Confirm Password is required";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -49,7 +49,7 @@ const Register = () => {
     const email = (formData.email || "").trim();
     const phone = (formData.phone || "").trim();
     const password = formData.password || "";
-    const address = (formData.address || "").trim();
+    const confirmPassword = formData.confirmPassword || "";
 
     if (!nameRegex.test(name)) {
       toast.error("Name must contain only letters");
@@ -73,8 +73,8 @@ const Register = () => {
       return false;
     }
 
-    if (!address) {
-      toast.error("Address required");
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match");
       return false;
     }
 
@@ -98,7 +98,6 @@ const Register = () => {
         name: formData.name?.trim(),
         email: formData.email?.trim(),
         phone: formData.phone?.trim(),
-        address: formData.address?.trim(),
       });
 
       toast.success("Registered successfully");
@@ -149,7 +148,7 @@ const Register = () => {
         <div className="w-full max-w-md mx-auto px-6 sm:px-12 py-16 lg:py-8">
           <div className="text-left mb-6">
             <h2 className="text-3xl md:text-4xl font-bold text-[#1e266d] mb-2 tracking-tight">
-              Create Account
+              Create Guest Account
             </h2>
             <p className="text-gray-400 text-sm font-medium">
               Join us today to find your sweet home
@@ -235,24 +234,24 @@ const Register = () => {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">
-                Address
-              </label>
-              <textarea
-                name="address"
-                placeholder="Enter your full address"
-                rows="2"
-                onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50 resize-none ${errors.address ? "border-red-500" : "border-gray-200"
-                  }`}
-              />
-              {errors.address && (
-                <p className="text-red-500 text-xs font-semibold mt-2">
-                  {errors.address}
-                </p>
-              )}
-            </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">
+                  Confirm Password
+                </label>
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  placeholder="Confirm Password"
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3 border rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-gray-50/50 ${errors.confirmPassword ? "border-red-500" : "border-gray-200"
+                    }`}
+                />
+                {errors.confirmPassword && (
+                  <p className="text-red-500 text-xs font-semibold mt-2">
+                    {errors.confirmPassword}
+                  </p>
+                )}
+              </div>
 
             <div className="flex items-start gap-2 text-xs md:text-sm text-gray-600">
               <input

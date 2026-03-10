@@ -13,11 +13,6 @@ const getUserFromStorage = () => {
 
 const initialFormData = {
   summary: "",
-  linenChanged: false,
-  washroomCleaned: false,
-  floorCleaned: false,
-  amenitiesRestocked: false,
-  minibarChecked: false,
   damageFound: false,
   damageNote: "",
   lostAndFound: false,
@@ -25,6 +20,7 @@ const initialFormData = {
   markIssueReported: false,
   issueType: "",
   issueDescription: "",
+  checklist: [],
 };
 
 const CleaningReport = () => {
@@ -87,11 +83,6 @@ const CleaningReport = () => {
 
     setFormData({
       summary: selectedTask?.report?.summary || "",
-      linenChanged: !!selectedTask?.report?.linenChanged,
-      washroomCleaned: !!selectedTask?.report?.washroomCleaned,
-      floorCleaned: !!selectedTask?.report?.floorCleaned,
-      amenitiesRestocked: !!selectedTask?.report?.amenitiesRestocked,
-      minibarChecked: !!selectedTask?.report?.minibarChecked,
       damageFound: !!selectedTask?.report?.damageFound,
       damageNote: selectedTask?.report?.damageNote || "",
       lostAndFound: !!selectedTask?.report?.lostAndFound,
@@ -99,6 +90,9 @@ const CleaningReport = () => {
       markIssueReported: selectedTask?.status === "IssueReported",
       issueType: selectedTask?.issue?.issueType || "",
       issueDescription: selectedTask?.issue?.description || "",
+      checklist: Array.isArray(selectedTask?.checklist)
+        ? selectedTask.checklist.map(item => ({ ...item }))
+        : [],
     });
   }, [selectedTask]);
 
@@ -248,13 +242,33 @@ const CleaningReport = () => {
                 />
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                {formData.checklist.length > 0 ? (
+                  formData.checklist.map((item, index) => (
+                    <label
+                      key={index}
+                      className="flex items-center gap-3 border border-gray-200 rounded-xl p-3"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={item.isDone}
+                        onChange={(e) => {
+                          const newChecklist = [...formData.checklist];
+                          newChecklist[index].isDone = e.target.checked;
+                          setFormData({ ...formData, checklist: newChecklist });
+                        }}
+                        className="h-4 w-4 accent-[#1e266d]"
+                      />
+                      <span className="text-sm text-gray-700">{item.label}</span>
+                    </label>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-400 italic">No checklist items defined.</p>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
-                  ["linenChanged", "Linen Changed"],
-                  ["washroomCleaned", "Washroom Cleaned"],
-                  ["floorCleaned", "Floor Cleaned"],
-                  ["amenitiesRestocked", "Amenities Restocked"],
-                  ["minibarChecked", "Minibar Checked"],
                   ["damageFound", "Damage Found"],
                   ["lostAndFound", "Lost & Found"],
                   ["markIssueReported", "Mark Issue Reported"],

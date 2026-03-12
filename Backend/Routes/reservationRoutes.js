@@ -11,6 +11,7 @@ import {
   checkOutReservation,
   confirmOnlineReservationPayment,
   rejectOnlineReservationPayment,
+  uploadPaymentReceipt,
 } from "../Controllers/reservationController.js";
 
 import { protect } from "../Middlewares/authMiddleware.js";
@@ -79,6 +80,13 @@ reservationRoutes.patch(
   protect,
   authorizeRoles("admin", "receptionist"),
   checkOutReservation
+);
+
+reservationRoutes.post(
+  "/:id/upload-receipt",
+  protect,
+  authorizeRoles("guest"),
+  uploadPaymentReceipt
 );
 
 reservationRoutes.patch(

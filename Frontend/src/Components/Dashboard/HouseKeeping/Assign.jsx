@@ -140,7 +140,8 @@ const Assign = () => {
 
       await Promise.all(
         selectedRoomObjects.map(async ({ room, housekeepingTask, guestRequest }) => {
-          if (!room?._id) return;
+          const actualRoomId = room?._id || room;
+          if (!actualRoomId) return;
 
           const taskId = housekeepingTask?._id || "";
 
@@ -148,14 +149,14 @@ const Assign = () => {
             await api.patch(`/housekeeping/tasks/${taskId}/assign`, {
               assignedTo: selectedHouseKeeper,
               priority: housekeepingTask?.priority || "Medium",
-              note: `Assigned from dashboard for Room ${room.roomNumber}`,
+              note: `Assigned from dashboard for Room ${room?.roomNumber || "Unknown"}`,
             });
             return;
           }
 
           // Create new task – bring checklist from guestRequest if exists
           await api.post("/housekeeping/tasks", {
-            roomId: room._id,
+            roomId: actualRoomId,
             reservationId: guestRequest?.reservation || null,
             assignedTo: selectedHouseKeeper,
             taskType: guestRequest

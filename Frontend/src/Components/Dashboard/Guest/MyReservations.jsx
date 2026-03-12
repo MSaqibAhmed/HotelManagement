@@ -8,6 +8,7 @@ import {
   FaCalendarCheck,
   FaEdit,
   FaFileInvoice,
+  FaCloudUploadAlt,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import api from "../../../api";
@@ -45,6 +46,13 @@ const MyReservations = () => {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewData, setPreviewData] = useState(null);
   const [submitLoading, setSubmitLoading] = useState(false);
+
+  // Upload Receipt State
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadingId, setUploadingId] = useState("");
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [receiptPreview, setReceiptPreview] = useState("");
+  const [uploadLoading, setUploadLoading] = useState(false);
 
   const itemsPerPage = 5;
 
@@ -117,6 +125,7 @@ const MyReservations = () => {
       nights: Number(item?.nights || 0),
       adults: Number(item?.adults || 1),
       children: Number(item?.children || 0),
+      paymentMethod: payment?.method || item?.payment?.method || "Cash",
       specialRequests: item?.specialRequests || "",
       createdAt: item?.createdAt || "",
       reservationRaw: item,
@@ -172,6 +181,12 @@ const MyReservations = () => {
   const canDownloadInvoice = (reservation) => {
     const status = normalizeStatus(reservation?.status);
     return ["Confirmed", "Checked-In", "Checked-Out"].includes(status);
+  };
+
+  const needsReceipt = (reservation) => {
+    const isOnline = reservation?.paymentMethod === "Online";
+    const paymentStatus = reservation?.paymentStatus || "Pending";
+    return isOnline && ["Pending", "Rejected"].includes(paymentStatus);
   };
 
   const handleDownloadInvoice = (reservation) => {
@@ -315,6 +330,66 @@ const MyReservations = () => {
       toast.error(error?.response?.data?.message || "Failed to cancel reservation");
     } finally {
       setCancellingId("");
+    }
+  };
+
+  const openUploadModal = (reservation) => {
+    setUploadingId(reservation._id);
+    setReceiptFile(null);
+    setReceiptPreview("");
+    setShowUploadModal(true);
+  };
+
+  const closeUploadModal = () => {
+    setShowUploadModal(false);
+    setUploadingId("");
+    setReceiptFile(null);
+    setReceiptPreview("");
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File size must be less than 5MB");
+      return;
+    }
+
+    setReceiptFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setReceiptPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleUploadReceipt = async (e) => {
+    e.preventDefault();
+    if (!receiptFile || !receiptPreview) {
+      toast.error("Please select a receipt image");
+      return;
+    }
+
+    try {
+      setUploadLoading(true);
+
+      await api.post(`/reservation/${uploadingId}/upload-receipt`, {
+        receiptImage: receiptPreview,
+      });
+
+      toast.success("Receipt uploaded successfully. Pending verification.");
+      closeUploadModal();
+      fetchReservations();
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to upload receipt");
+    } finally {
+      setUploadLoading(false);
     }
   };
 
@@ -659,6 +734,16 @@ const MyReservations = () => {
                               <FaEye className="w-4 h-4" />
                             </button>
 
+                            {needsReceipt(res) && (
+                              <button
+                                onClick={() => openUploadModal(res)}
+                                className="p-2 text-gray-500 hover:text-[#1e266d] hover:bg-[#1e266d]/10 rounded-lg"
+                                title="Upload Receipt"
+                              >
+                                <FaCloudUploadAlt className="w-4 h-4" />
+                              </button>
+                            )}
+
                             {canDownloadInvoice(res) && (
                               <button
                                 onClick={() => handleDownloadInvoice(res)}
@@ -757,6 +842,15 @@ const MyReservations = () => {
                         >
                           View Details
                         </button>
+
+                        {needsReceipt(res) && (
+                          <button
+                            onClick={() => openUploadModal(res)}
+                            className="flex-1 px-3 py-2 text-xs font-medium text-[#1e266d] bg-[#1e266d]/5 rounded-lg hover:bg-[#1e266d]/10"
+                          >
+                            Upload Receipt
+                          </button>
+                        )}
 
                         {canModifyReservation(res) && (
                           <button
@@ -1280,6 +1374,72 @@ const MyReservations = () => {
                 </div>
               </>
             ) : null}
+          </div>
+        </div>
+      )}
+
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] px-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-xl p-6">
+            <h2 className="text-xl font-bold text-[#1e266d] mb-2">Upload Payment Receipt</h2>
+            <p className="text-sm text-gray-500 mb-6">
+              Please upload a clear screenshot of your online payment transaction.
+            </p>
+
+            <form onSubmit={handleUploadReceipt} className="space-y-4">
+              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center group hover:border-[#1e266d] transition-colors relative">
+                {receiptPreview ? (
+                  <div className="relative w-full aspect-[3/4] sm:aspect-square flex items-center justify-center bg-gray-50 rounded-lg overflow-hidden">
+                    <img 
+                      src={receiptPreview} 
+                      alt="Receipt Preview" 
+                      className="object-contain w-full h-full"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="text-white font-medium text-sm">Change Image</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <FaCloudUploadAlt className="w-12 h-12 text-gray-400 mx-auto mb-3 group-hover:text-[#1e266d] transition-colors" />
+                    <p className="text-sm font-medium text-gray-700">Click to upload receipt</p>
+                    <p className="text-xs text-gray-400 mt-1">PNG, JPG up to 5MB</p>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={closeUploadModal}
+                  className="px-6 py-2.5 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50"
+                  disabled={uploadLoading}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={uploadLoading || !receiptFile}
+                  className="px-6 py-2.5 bg-[#1e1e1e] text-white rounded-xl font-bold hover:bg-black disabled:opacity-60 flex items-center gap-2"
+                >
+                  {uploadLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                      Uploading...
+                    </>
+                  ) : (
+                    "Upload Receipt"
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

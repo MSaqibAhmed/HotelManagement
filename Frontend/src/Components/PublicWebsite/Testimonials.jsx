@@ -3,8 +3,6 @@ import { Star, MessageSquarePlus, X, CheckCircle } from "lucide-react";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import api from "../../api";
-
-/* ─── Static fallback shown before backend loads ─── */
 const FALLBACK = [
   { guestSnapshot: { name: "Sarah Mitchell" }, rating: 5, category: "Stay", message: "An absolutely stunning experience. The staff went above and beyond to make my stay memorable. The room was immaculate and the service was world-class." },
   { guestSnapshot: { name: "James Thornton" }, rating: 5, category: "Stay", message: "We chose LuxuryStay for our honeymoon and it was perfect. The attention to detail, the beautiful rooms, and the spectacular views made it unforgettable." },

@@ -66,13 +66,14 @@ export const createHousekeepingTask = async (req, res) => {
 
     const activeTask = await HousekeepingTask.findOne({
       room: room._id,
+      taskType: taskType || "CheckoutCleaning", // only block if same type
       status: { $in: ["Pending", "Assigned", "InProgress"] },
       isActive: true,
     });
 
     if (activeTask) {
       return res.status(400).json({
-        message: "An active housekeeping task already exists for this room",
+        message: `An active ${taskType || "CheckoutCleaning"} task already exists for this room`,
       });
     }
 
@@ -95,10 +96,10 @@ export const createHousekeepingTask = async (req, res) => {
       checklist:
         Array.isArray(checklist) && checklist.length
           ? checklist.map((item) => ({
-            label: String(item.label || "").trim(),
+            label: String(item.label || "").trim() || "Untitled Task",
             isDone: Boolean(item.isDone),
           }))
-          : defaultChecklist,
+          : (taskType === "CheckoutCleaning" ? defaultChecklist : []),
     });
 
     if (room.status !== "Cleaning") {
@@ -321,6 +322,10 @@ export const updateHousekeepingTaskStatus = async (req, res) => {
           task.roomStatusAfter = restoredStatus;
           await Room.findByIdAndUpdate(roomToRestore._id, { status: restoredStatus }, { runValidators: false });
         }
+        await HousekeepingRequest.updateMany(
+          { room: task.room._id || task.room, status: { $in: ["Pending", "Assigned", "In-Progress"] } },
+          { $set: { status: "Completed", completedAt: new Date() } }
+        );
       }
     }
 
@@ -482,6 +487,11 @@ export const submitCleaningReport = async (req, res) => {
         task.roomStatusAfter = restoredStatus;
         task.room.status = restoredStatus;
         await task.room.save();
+        
+        await HousekeepingRequest.updateMany(
+          { room: task.room._id || task.room, status: { $in: ["Pending", "Assigned", "In-Progress"] } },
+          { $set: { status: "Completed", completedAt: new Date() } }
+        );
       }
     }
 
@@ -522,12 +532,6 @@ export const verifyHousekeepingTask = async (req, res) => {
     if (task.status === "Completed") {
       task.status = "Verified";
       task.isActive = false;
-
-      if (task.room) {
-        task.room.status = task.roomStatusBefore || "Available";
-        task.roomStatusAfter = task.room.status;
-        await task.room.save();
-      }
     }
 
     await task.save();

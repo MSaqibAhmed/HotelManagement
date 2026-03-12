@@ -54,6 +54,9 @@ const CheckOut = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [selectedReservation, setSelectedReservation] = useState(null);
+
   const fetchEligibleReservations = async () => {
     try {
       setLoading(true);
@@ -93,16 +96,22 @@ const CheckOut = () => {
     });
   }, [reservations, searchTerm]);
 
-  const handleCheckOut = async (reservation) => {
-    const ok = window.confirm(`Check out ${reservation.guestName} (${reservation.bookingId})?`);
-    if (!ok) return;
+  const confirmCheckOut = (reservation) => {
+    setSelectedReservation(reservation);
+    setShowCheckoutModal(true);
+  };
+
+  const handleCheckOut = async () => {
+    if (!selectedReservation) return;
 
     try {
-      await api.patch(`/reservation/${reservation._id}/checkout`);
+      await api.patch(`/reservation/${selectedReservation._id}/checkout`);
       toast.success("Checked-out successfully");
 
       // ✅ remove from eligible list
-      setReservations((prev) => prev.filter((r) => r._id !== reservation._id));
+      setReservations((prev) => prev.filter((r) => r._id !== selectedReservation._id));
+      setShowCheckoutModal(false);
+      setSelectedReservation(null);
     } catch (e) {
       toast.error(e?.response?.data?.message || "Check-out failed");
     }
@@ -236,7 +245,7 @@ const CheckOut = () => {
 
                           <td className="px-6 py-4 text-right">
                             <button
-                              onClick={() => handleCheckOut(res)}
+                              onClick={() => confirmCheckOut(res)}
                               className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg font-semibold hover:bg-orange-700 transition"
                             >
                               <FaSignOutAlt className="w-4 h-4" /> Check Out
@@ -296,7 +305,7 @@ const CheckOut = () => {
                         </div>
 
                         <button
-                          onClick={() => handleCheckOut(res)}
+                          onClick={() => confirmCheckOut(res)}
                           className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-orange-600 text-white rounded-lg font-semibold hover:bg-orange-700 transition"
                         >
                           <FaSignOutAlt className="w-4 h-4" /> Check Out Guest
@@ -310,6 +319,36 @@ const CheckOut = () => {
           </>
         )}
       </div>
+
+      {showCheckoutModal && selectedReservation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 border border-gray-100">
+            <h2 className="text-xl font-bold text-[#1e266d] mb-4">Confirm Check-Out</h2>
+            <p className="text-gray-600 mb-6 leading-relaxed">
+              Are you sure you want to check out guest <span className="font-semibold text-gray-800">{selectedReservation.guestName}</span> from room <span className="font-semibold text-gray-800">{selectedReservation.roomNumber}</span>? 
+              <br /><br />
+              This will update the room status to <span className="text-amber-600 font-medium">Cleaning</span> and generate a standard check-out housekeeping task automatically.
+            </p>
+            <div className="flex justify-end gap-3 flex-wrap">
+              <button
+                onClick={() => {
+                  setShowCheckoutModal(false);
+                  setSelectedReservation(null);
+                }}
+                className="px-5 py-2.5 rounded-xl font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCheckOut}
+                className="px-5 py-2.5 rounded-xl font-semibold text-white bg-orange-600 hover:bg-orange-700 transition flex items-center gap-2"
+              >
+                <FaSignOutAlt /> Confirm Check-Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

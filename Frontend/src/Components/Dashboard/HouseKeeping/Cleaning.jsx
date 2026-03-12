@@ -217,6 +217,7 @@ const Cleaning = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedTask, setSelectedTask] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [activeTab, setActiveTab] = useState("Active");
 
   const itemsPerPage = 10;
 
@@ -269,24 +270,33 @@ const Cleaning = () => {
         task?.room?.roomNumber || task?.roomSnapshot?.roomNumber || ""
       ).toLowerCase();
       const taskNumber = String(task?.taskNumber || "").toLowerCase();
-      const status = String(task?.status || "").toLowerCase();
+      const status = String(task?.status || "");
       const taskType = String(task?.taskType || "").toLowerCase();
+
+      // Tab Filtering
+      const isActiveTab = activeTab === "Active";
+      const activeStatuses = ["Pending", "Assigned", "InProgress", "IssueReported"];
+      const completedStatuses = ["Completed", "Verified", "Cancelled"];
+
+      const matchesTab = isActiveTab
+        ? activeStatuses.includes(status)
+        : completedStatuses.includes(status);
 
       const matchesSearch =
         !q ||
         assignedName.includes(q) ||
         roomNumber.includes(q) ||
         taskNumber.includes(q) ||
-        status.includes(q) ||
+        status.toLowerCase().includes(q) ||
         taskType.includes(q);
 
       const matchesStatus = statusFilter
-        ? status === statusFilter.toLowerCase()
+        ? status.toLowerCase() === statusFilter.toLowerCase()
         : true;
 
-      return matchesSearch && matchesStatus;
+      return matchesTab && matchesSearch && matchesStatus;
     });
-  }, [tasks, searchTerm, statusFilter]);
+  }, [tasks, searchTerm, statusFilter, activeTab]);
 
   const totalPages = Math.ceil(filteredTasks.length / itemsPerPage);
 
@@ -392,6 +402,26 @@ const Cleaning = () => {
             ? "View and manage your assigned cleaning tasks"
             : "Track and manage room cleaning tasks"}
         </p>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex px-1 space-x-6 border-b border-gray-200">
+        {["Active", "Completed"].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => {
+              setActiveTab(tab);
+              setCurrentPage(1);
+            }}
+            className={`pb-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${
+              activeTab === tab
+                ? "border-[#1e266d] text-[#1e266d]"
+                : "border-transparent text-gray-400 hover:text-gray-600"
+            }`}
+          >
+            {tab} Tasks
+          </button>
+        ))}
       </div>
 
       <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200">

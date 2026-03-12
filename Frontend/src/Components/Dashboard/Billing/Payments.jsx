@@ -3,7 +3,7 @@ import { FaSearch, FaReceipt, FaCheckCircle, FaTimesCircle } from "react-icons/f
 import { toast } from "react-toastify";
 import api from "../../../api";
 
-const THEME = "#d6c3b3";
+const THEME = "#1e266d";
 
 const getRole = () => {
   try {
@@ -173,14 +173,14 @@ const Payments = () => {
     }
   };
 
-  const rejectOnlinePayment = async () => {
+  const rejectOnlinePayment = async (note = "") => {
     if (!confirmRow?._id) return;
     try {
       setConfirmLoading(true);
 
       // ✅ Optional endpoint if you build it:
       // PATCH /api/reservation/:id/reject-online
-      await api.patch(`/reservation/${confirmRow._id}/reject-online`);
+      await api.patch(`/reservation/${confirmRow._id}/reject-online`, { note });
 
       toast.success("Payment rejected");
       setConfirmOpen(false);
@@ -330,8 +330,8 @@ const Payments = () => {
                             {p.status !== "Paid" && (
                               <button
                                 onClick={() => openConfirm(p)}
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-gray-900 hover:opacity-90 transition"
-                                style={{ backgroundColor: THEME }}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-white hover:opacity-90 transition bg-[var(--theme-color)]"
+                                style={{ "--theme-color": THEME }}
                               >
                                 Verify
                               </button>
@@ -398,8 +398,8 @@ const Payments = () => {
                         {p.status !== "Paid" && (
                           <button
                             onClick={() => openConfirm(p)}
-                            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold text-gray-900 hover:opacity-90 transition"
-                            style={{ backgroundColor: THEME }}
+                            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold text-white hover:opacity-90 transition bg-[var(--theme-color)]"
+                            style={{ "--theme-color": THEME }}
                           >
                             Verify
                           </button>
@@ -508,6 +508,16 @@ const ReceiptModal = ({ payment, onClose, getStatusStyle }) => {
 };
 
 const ConfirmModal = ({ row, loading, onClose, onConfirm, onReject }) => {
+  const [note, setNote] = useState("");
+
+  const handleReject = () => {
+    if (!note.trim()) {
+      toast.error("Please provide a reason for rejection");
+      return;
+    }
+    onReject(note);
+  };
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
       <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl p-6">
@@ -521,16 +531,27 @@ const ConfirmModal = ({ row, loading, onClose, onConfirm, onReject }) => {
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 space-y-2">
           <p className="text-sm text-gray-700">
             Guest: <span className="font-semibold">{row.guestName}</span>
           </p>
-          <p className="text-sm text-gray-700 mt-1">
+          <p className="text-sm text-gray-700">
             Amount: <span className="font-semibold">Rs {safeNum(row.amount).toLocaleString()}</span>
           </p>
-          <p className="text-sm text-gray-700 mt-1">
+          <p className="text-sm text-gray-700">
             Receipt: <span className="font-semibold">{row.receiptUrl ? "Uploaded" : "Not uploaded"}</span>
           </p>
+
+          <div className="pt-2">
+            <label className="block text-xs font-semibold text-gray-500 mb-1">Rejection Reason (Optional for verify)</label>
+            <textarea
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:ring-1 focus:ring-red-500"
+              rows={2}
+              placeholder="Why is this receipt being rejected?"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+          </div>
         </div>
 
         <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
@@ -538,11 +559,11 @@ const ConfirmModal = ({ row, loading, onClose, onConfirm, onReject }) => {
             onClick={onClose}
             className="px-6 py-2.5 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50"
           >
-            Close
+            Cancel
           </button>
 
           <button
-            onClick={onReject}
+            onClick={handleReject}
             disabled={loading}
             className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60"
           >
@@ -553,11 +574,11 @@ const ConfirmModal = ({ row, loading, onClose, onConfirm, onReject }) => {
           <button
             onClick={onConfirm}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-gray-900 disabled:opacity-60"
-            style={{ backgroundColor: THEME }}
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white disabled:opacity-60 bg-[var(--theme-color)] hover:opacity-90"
+            style={{ "--theme-color": THEME }}
           >
             <FaCheckCircle />
-            {loading ? "Confirming..." : "Confirm"}
+            {loading ? "Confirming..." : "Verify & Confirm"}
           </button>
         </div>
       </div>

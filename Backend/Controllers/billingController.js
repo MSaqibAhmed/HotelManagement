@@ -21,7 +21,7 @@ export const billingOverview = async (req, res) => {
 
     const totalPaidAgg = await Invoice.aggregate([
       { $match: { status: "Paid" } },
-      { $group: { _id: null, total: { $sum: "$amount" } } },
+      { $group: { _id: null, total: { $sum: "$paidAmount" } } },
     ]);
     const totalRevenue = Number(totalPaidAgg?.[0]?.total || 0);
 
@@ -43,7 +43,7 @@ export const billingOverview = async (req, res) => {
           createdAt: { $lt: sevenDaysAgo },
         },
       },
-      { $group: { _id: null, total: { $sum: "$amount" } } },
+      { $group: { _id: null, total: { $sum: "$remainingAmount" } } },
     ]);
     const overdueAmount = Number(overdueAgg?.[0]?.total || 0);
 
@@ -57,7 +57,9 @@ export const billingOverview = async (req, res) => {
       _id: inv._id,
       invoiceId: inv.invoiceNumber,
       guestName: inv.guest?.name || "Guest",
-      amount: Number(inv.amount || 0),
+      amount: Number(inv.totalAmount || 0),
+      paidAmount: Number(inv.paidAmount || 0),
+      remainingAmount: Number(inv.remainingAmount || 0),
       dueDate: inv.createdAt ? new Date(inv.createdAt).toLocaleDateString() : "",
       status: inv.status,
     }));

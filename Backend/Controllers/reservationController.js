@@ -2,6 +2,8 @@ import Reservation from "../Models/reservationModel.js";
 import Room from "../Models/roomModel.js";
 import User from "../Models/userModel.js";
 import Invoice from "../Models/billingModel.js";
+import HousekeepingTask from "../Models/housekeepingModel.js";
+import cloudinary from "../config/cloudinary.js";
 
 const EXTRA_PERSON_CHARGE_PER_NIGHT = 500;
 
@@ -451,9 +453,83 @@ export const checkOutReservation = async (req, res) => {
     await reservation.save();
     await room.save();
 
+    // Auto-create Housekeeping Task for cleaning
+    const defaultChecklist = [
+      { label: "Bedsheet changed", isDone: false },
+      { label: "Washroom cleaned", isDone: false },
+      { label: "Floor cleaned", isDone: false },
+      { label: "Dusting completed", isDone: false },
+      { label: "Amenities restocked", isDone: false },
+      { label: "Towels replaced", isDone: false },
+    ];
+
+    await HousekeepingTask.create({
+      room: room._id,
+      roomSnapshot: {
+        roomNumber: room.roomNumber || "",
+        roomName: room.roomName || "",
+        roomType: room.roomType || "",
+        floor: room.floor || 0,
+      },
+      reservation: reservation._id,
+      assignedBy: req.user._id, // Receptionist or admin checking out
+      taskType: "CheckoutCleaning",
+      priority: "High",
+      note: `Auto-generated for check-out of reservation ${reservation.reservationNumber || reservation._id}`,
+      status: "Pending",
+      roomStatusBefore: "Occupied",
+      checklist: defaultChecklist,
+    });
+
     return res.json({ message: "Checked-out successfully", reservation, room });
   } catch (error) {
     return res.status(500).json({ message: "Check-out failed", error: error.message });
+  }
+};
+
+export const uploadPaymentReceipt = async (req, res) => {
+  try {
+    if (!ensureAuth(req, res)) return;
+
+    const { id } = req.params;
+    const { receiptImage } = req.body;
+
+    if (!receiptImage) {
+      return res.status(400).json({ message: "Receipt image is required" });
+    }
+
+    const reservation = await Reservation.findById(id);
+    if (!reservation) {
+      return res.status(404).json({ message: "Reservation not found" });
+    }
+
+    if (String(req.user.role).toLowerCase() === "guest" && String(reservation.guest) !== String(req.user._id)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    if (reservation.payment.method !== "Online") {
+      return res.status(400).json({ message: "Only online payments require a receipt" });
+    }
+
+    // Upload to cloudinary
+    const result = await cloudinary.uploader.upload(receiptImage, {
+      folder: "hotel_receipts",
+    });
+
+    reservation.payment.receipt = {
+      url: result.secure_url,
+      public_id: result.public_id,
+    };
+    reservation.payment.status = "PendingVerification";
+    
+    await reservation.save();
+
+    return res.json({ 
+      message: "Receipt uploaded successfully. Pending verification.", 
+      reservation 
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to upload receipt", error: error.message });
   }
 };
 

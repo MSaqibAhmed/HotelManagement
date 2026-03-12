@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import logo from "../../assets/logo.png";
-
+import { sidebarPermissions, checkAccess } from "../../context/roleConfig";
 import {
   FaChevronDown,
   FaTachometerAlt,
@@ -36,13 +36,13 @@ import {
   FaComment,
   FaCogs,
 } from "react-icons/fa";
-
 const THEME = "#d6c3b3";
-
 const DashboardSidebar = ({ open, setOpen, collapsed, setCollapsed }) => {
   const location = useLocation();
   const navigate = useNavigate();
-
+  const userStr = localStorage.getItem("user");
+  const user = userStr ? JSON.parse(userStr) : {};
+  const userRole = user?.role || "";
   const [openMenus, setOpenMenus] = useState({
     "User Management": false,
     "Room Management": false,
@@ -53,12 +53,8 @@ const DashboardSidebar = ({ open, setOpen, collapsed, setCollapsed }) => {
     Guest: false,
     System: false,
   });
-
-  // Close all dropdowns when navigating to a different section
   useEffect(() => {
     const currentPath = location.pathname;
-
-    // Check if current path belongs to each menu section
     const menuSections = {
       "User Management": "/dashboard/user-management",
       "Room Management": "/dashboard/room-management",
@@ -69,13 +65,9 @@ const DashboardSidebar = ({ open, setOpen, collapsed, setCollapsed }) => {
       Guest: "/dashboard/guest",
       System: "/dashboard/system",
     };
-
-    // Find which section the current path belongs to
     const activeSection = Object.keys(menuSections).find(
       (section) => currentPath.startsWith(menuSections[section])
     );
-
-    // Close all menus first, then open only the active section's menu
     setOpenMenus({
       "User Management": false,
       "Room Management": false,
@@ -170,17 +162,6 @@ const DashboardSidebar = ({ open, setOpen, collapsed, setCollapsed }) => {
       ],
     },
     {
-      title: "Guest",
-      type: "dropdown",
-      icon: <FaUserFriends />,
-      parentPath: "/dashboard/guest/my-reservations",
-      subItems: [
-        { title: "My Reservations", path: "/dashboard/guest/my-reservations", icon: <FaHome /> },
-        { title: "Request Services", path: "/dashboard/guest/request-services", icon: <FaConciergeBell /> },
-        { title: "Feedback", path: "/dashboard/guest/feedback", icon: <FaComment /> },
-      ],
-    },
-    {
       title: "System",
       type: "dropdown",
       icon: <FaCog />,
@@ -258,115 +239,120 @@ const DashboardSidebar = ({ open, setOpen, collapsed, setCollapsed }) => {
 
         {/* Menu Items */}
         <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-1 scrollbar-hide overflow-x-hidden">
-          {menu.map((item) => {
-            const parentActive = item.subItems ? isSubActive(item.subItems) : isActive(item.path);
+          {menu
+            .filter((item) => {
+              const reqRoles = sidebarPermissions[item.title] || [];
+              return checkAccess(userRole, reqRoles);
+            })
+            .map((item) => {
+              const parentActive = item.subItems ? isSubActive(item.subItems) : isActive(item.path);
 
-            // Single Menu Item
-            if (item.type === "single") {
+              // Single Menu Item
+              if (item.type === "single") {
+                return (
+                  <Link
+                    key={item.title}
+                    to={item.path}
+                    onClick={closeOnMobile}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl text-[14px] transition-all group"
+                    style={{
+                      backgroundColor: parentActive ? `${THEME}66` : "transparent",
+                      borderLeft: parentActive ? `4px solid ${THEME}` : "4px solid transparent",
+                      color: parentActive ? "#111827" : "#374151",
+                    }}
+                    title={collapsed ? item.title : ""}
+                  >
+                    <span className={`text-[18px] ${collapsed ? "mx-auto" : ""}`}>
+                      {item.icon}
+                    </span>
+                    {!collapsed && <span className="font-medium whitespace-nowrap">{item.title}</span>}
+                  </Link>
+                );
+              }
+
+              // Dropdown Menu Item
+              const expanded = openMenus[item.title] || parentActive;
+
               return (
-                <Link
-                  key={item.title}
-                  to={item.path}
-                  onClick={closeOnMobile}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-[14px] transition-all group"
-                  style={{
-                    backgroundColor: parentActive ? `${THEME}66` : "transparent",
-                    borderLeft: parentActive ? `4px solid ${THEME}` : "4px solid transparent",
-                    color: parentActive ? "#111827" : "#374151",
-                  }}
-                  title={collapsed ? item.title : ""}
-                >
-                  <span className={`text-[18px] ${collapsed ? "mx-auto" : ""}`}>
-                    {item.icon}
-                  </span>
-                  {!collapsed && <span className="font-medium whitespace-nowrap">{item.title}</span>}
-                </Link>
-              );
-            }
+                <div key={item.title}>
+                  {/* Parent Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleDropdownClick(item)}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[14px] transition-all group"
+                    style={{
+                      backgroundColor: parentActive ? `${THEME}55` : "transparent",
+                      color: parentActive ? "#111827" : "#374151",
+                    }}
+                    title={collapsed ? item.title : ""}
+                  >
+                    <span className={`text-[18px] flex-shrink-0 ${collapsed ? "mx-auto" : ""}`}>
+                      {item.icon}
+                    </span>
 
-            // Dropdown Menu Item
-            const expanded = openMenus[item.title] || parentActive;
+                    {!collapsed && (
+                      <>
+                        <span className="flex-1 text-left font-medium whitespace-nowrap overflow-hidden text-ellipsis">
+                          {item.title}
+                        </span>
+                        <FaChevronDown
+                          className={`text-[11px] flex-shrink-0 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+                        />
+                      </>
+                    )}
+                  </button>
 
-            return (
-              <div key={item.title}>
-                {/* Parent Button */}
-                <button
-                  type="button"
-                  onClick={() => handleDropdownClick(item)}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[14px] transition-all group"
-                  style={{
-                    backgroundColor: parentActive ? `${THEME}55` : "transparent",
-                    color: parentActive ? "#111827" : "#374151",
-                  }}
-                  title={collapsed ? item.title : ""}
-                >
-                  <span className={`text-[18px] flex-shrink-0 ${collapsed ? "mx-auto" : ""}`}>
-                    {item.icon}
-                  </span>
-
-                  {!collapsed && (
-                    <>
-                      <span className="flex-1 text-left font-medium whitespace-nowrap overflow-hidden text-ellipsis">
-                        {item.title}
-                      </span>
-                      <FaChevronDown
-                        className={`text-[11px] flex-shrink-0 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
-                      />
-                    </>
+                  {/* Sub-Items when Expanded */}
+                  {expanded && !collapsed && (
+                    <div className="ml-6 mt-1 mb-2 pl-3 border-l-2 space-y-1" style={{ borderColor: `${THEME}66` }}>
+                      {item.subItems.map((sub) => {
+                        const subActive = isActive(sub.path);
+                        return (
+                          <Link
+                            key={sub.title}
+                            to={sub.path}
+                            onClick={closeOnMobile}
+                            className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-[13px] transition-all"
+                            style={{
+                              backgroundColor: subActive ? `${THEME}44` : "transparent",
+                              color: subActive ? "#111827" : "#4b5563",
+                              fontWeight: subActive ? 600 : 400,
+                            }}
+                          >
+                            <span className="text-[13px] opacity-80">{sub.icon}</span>
+                            <span>{sub.title}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
                   )}
-                </button>
 
-                {/* Sub-Items when Expanded */}
-                {expanded && !collapsed && (
-                  <div className="ml-6 mt-1 mb-2 pl-3 border-l-2 space-y-1" style={{ borderColor: `${THEME}66` }}>
-                    {item.subItems.map((sub) => {
-                      const subActive = isActive(sub.path);
-                      return (
-                        <Link
-                          key={sub.title}
-                          to={sub.path}
-                          onClick={closeOnMobile}
-                          className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-[13px] transition-all"
-                          style={{
-                            backgroundColor: subActive ? `${THEME}44` : "transparent",
-                            color: subActive ? "#111827" : "#4b5563",
-                            fontWeight: subActive ? 600 : 400,
-                          }}
-                        >
-                          <span className="text-[13px] opacity-80">{sub.icon}</span>
-                          <span>{sub.title}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Sub-Items Icons when Collapsed */}
-                {expanded && collapsed && (
-                  <div className="ml-2 mt-1 space-y-1">
-                    {item.subItems.map((sub) => {
-                      const subActive = isActive(sub.path);
-                      return (
-                        <Link
-                          key={sub.title}
-                          to={sub.path}
-                          onClick={closeOnMobile}
-                          className="flex items-center justify-center px-3 py-2.5 rounded-lg text-[14px] transition-all"
-                          style={{
-                            backgroundColor: subActive ? `${THEME}55` : "transparent",
-                            color: subActive ? "#111827" : "#4b5563",
-                          }}
-                          title={sub.title}
-                        >
-                          <span className="text-[16px]">{sub.icon}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                  {/* Sub-Items Icons when Collapsed */}
+                  {expanded && collapsed && (
+                    <div className="ml-2 mt-1 space-y-1">
+                      {item.subItems.map((sub) => {
+                        const subActive = isActive(sub.path);
+                        return (
+                          <Link
+                            key={sub.title}
+                            to={sub.path}
+                            onClick={closeOnMobile}
+                            className="flex items-center justify-center px-3 py-2.5 rounded-lg text-[14px] transition-all"
+                            style={{
+                              backgroundColor: subActive ? `${THEME}55` : "transparent",
+                              color: subActive ? "#111827" : "#4b5563",
+                            }}
+                            title={sub.title}
+                          >
+                            <span className="text-[16px]">{sub.icon}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
         </nav>
       </aside>
     </>

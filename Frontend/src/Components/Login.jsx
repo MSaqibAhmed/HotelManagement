@@ -137,9 +137,8 @@ const Login = () => {
                 name="email"
                 placeholder="info@gmail.com"
                 onChange={handleChange}
-                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-4 focus:ring-blue-50 outline-none transition-all bg-gray-50/50 ${
-                  errors.email ? "border-red-500" : "border-gray-200"
-                }`}
+                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-4 focus:ring-blue-50 outline-none transition-all bg-gray-50/50 ${errors.email ? "border-red-500" : "border-gray-200"
+                  }`}
               />
               {errors.email && (
                 <p className="text-red-500 text-xs font-semibold mt-2">
@@ -157,9 +156,8 @@ const Login = () => {
                 name="password"
                 placeholder="Enter Password"
                 onChange={handleChange}
-                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-4 focus:ring-blue-50 outline-none transition-all bg-gray-50/50 ${
-                  errors.password ? "border-red-500" : "border-gray-200"
-                }`}
+                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-4 focus:ring-blue-50 outline-none transition-all bg-gray-50/50 ${errors.password ? "border-red-500" : "border-gray-200"
+                  }`}
               />
               {errors.password && (
                 <p className="text-red-500 text-xs font-semibold mt-2">

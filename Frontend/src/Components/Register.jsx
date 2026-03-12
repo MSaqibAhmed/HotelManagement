@@ -83,11 +83,7 @@ const Register = () => {
 
   const handleRegister = async (e) => {
     e.preventDefault();
-
-    // ✅ NEW: required first (empty check)
     if (!validateRequired()) return;
-
-    // ✅ Existing validation stays same
     if (!validateForm()) return;
 
     setLoading(true);

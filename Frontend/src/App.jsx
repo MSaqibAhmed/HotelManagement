@@ -24,9 +24,10 @@ import CheckOut from "./Components/Dashboard/Reservations/CheckOut";
 import BillingOverview from "./Components/Dashboard/Billing/BillingOverview";
 import InvoicesList from "./Components/Dashboard/Billing/InvoicesList";
 import Payments from "./Components/Dashboard/Billing/Payments";
-import MyReservations from "./Components/Dashboard/Guest/MyReservations";
-import RequestServices from "./Components/Dashboard/Guest/RequestServices";
-import Feedback from "./Components/Dashboard/Guest/Feedback";
+import GuestMyReservationsPage from "./Pages/PublicWebsite/GuestMyReservationsPage";
+import GuestCreateReservationPage from "./Pages/PublicWebsite/GuestCreateReservationPage";
+import GuestRequestServicesPage from "./Pages/PublicWebsite/GuestRequestServicesPage";
+import GuestFeedbackPage from "./Pages/PublicWebsite/GuestFeedbackPage";
 import Cleaning from "./Components/Dashboard/HouseKeeping/Cleaning";
 import Assign from "./Components/Dashboard/HouseKeeping/Assign";
 import CleaningReport from "./Components/Dashboard/HouseKeeping/CleaningReport";
@@ -83,6 +84,12 @@ function App() {
         <Route path="/about" element={<PublicLayout><AboutPage /></PublicLayout>} />
         <Route path="/contact" element={<PublicLayout><ContactPage /></PublicLayout>} />
 
+        {/* ─── Guest Routes (in PublicLayout) ─── */}
+        <Route path="/guest/my-reservations" element={<PublicLayout><GuestMyReservationsPage /></PublicLayout>} />
+        <Route path="/guest/create-reservation" element={<PublicLayout><GuestCreateReservationPage /></PublicLayout>} />
+        <Route path="/guest/request-services" element={<PublicLayout><GuestRequestServicesPage /></PublicLayout>} />
+        <Route path="/guest/feedback" element={<PublicLayout><GuestFeedbackPage /></PublicLayout>} />
+
         {/* ─── Admin Dashboard Routes ─── */}
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<DashboardHome />} />
@@ -101,9 +108,6 @@ function App() {
           <Route path="billing" element={<BillingOverview />} />
           <Route path="billing/invoices" element={<InvoicesList />} />
           <Route path="billing/payments" element={<Payments />} />
-          <Route path="guest/my-reservations" element={<MyReservations />} />
-          <Route path="guest/request-services" element={<RequestServices />} />
-          <Route path="guest/feedback" element={<Feedback />} />
           <Route path="housekeeping/room-status" element={<Cleaning />} />
           <Route path="housekeeping/assigned-tasks" element={<Assign />} />
           <Route path="housekeeping/cleaning-report" element={<CleaningReport />} />

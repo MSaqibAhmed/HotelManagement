@@ -57,7 +57,7 @@ const DashboardSidebar = ({ open, setOpen, collapsed, setCollapsed }) => {
   // Close all dropdowns when navigating to a different section
   useEffect(() => {
     const currentPath = location.pathname;
-    
+
     // Check if current path belongs to each menu section
     const menuSections = {
       "User Management": "/dashboard/user-management",

@@ -9,6 +9,8 @@ import {
   cancelReservation,
   checkInReservation,
   checkOutReservation,
+  confirmOnlineReservationPayment,
+  rejectOnlineReservationPayment,
 } from "../Controllers/reservationController.js";
 
 import { protect } from "../Middlewares/authMiddleware.js";
@@ -77,6 +79,20 @@ reservationRoutes.patch(
   protect,
   authorizeRoles("admin", "receptionist"),
   checkOutReservation
+);
+
+reservationRoutes.patch(
+  "/:id/confirm-online",
+  protect,
+  authorizeRoles("admin", "manager", "receptionist"),
+  confirmOnlineReservationPayment
+);
+
+reservationRoutes.patch(
+  "/:id/reject-online",
+  protect,
+  authorizeRoles("admin", "manager", "receptionist"),
+  rejectOnlineReservationPayment
 );
 
 export default reservationRoutes;

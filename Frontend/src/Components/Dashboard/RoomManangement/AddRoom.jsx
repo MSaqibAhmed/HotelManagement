@@ -13,7 +13,6 @@ const initialFormData = {
   roomName: "",
   roomType: "",
   typeDescription: "",
-  amenities: "",
   floor: "",
   capacity: "",
   extraCapability: "",
@@ -194,17 +193,10 @@ const AddRoom = () => {
 
       const payload = new FormData();
 
-      // amenities JSON string (controller parses JSON)
-      const amenitiesArray = (formData.amenities || "")
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean);
-
       payload.append("roomNumber", (formData.roomNumber || "").trim());
       payload.append("roomName", (formData.roomName || "").trim());
       payload.append("roomType", (formData.roomType || "").trim());
       payload.append("typeDescription", (formData.typeDescription || "").trim());
-      payload.append("amenities", JSON.stringify(amenitiesArray));
 
       payload.append("floor", String(Number(formData.floor)));
       payload.append("capacity", String(Number(formData.capacity)));
@@ -212,21 +204,16 @@ const AddRoom = () => {
       payload.append("bedNumber", String(Number(formData.bedNumber)));
       payload.append("bedType", formData.bedType);
       payload.append("roomSize", formData.roomSize);
-
-      // ✅ exact keys backend expects
       payload.append("basePrice", String(Number(formData.roomPrice)));
       payload.append("weekendPrice", String(Number(formData.weekendPrice || 0)));
       payload.append("extraBedCharge", String(Number(formData.bedCharge || 0)));
       payload.append("seasonalRate", formData.seasonalRate || "Normal");
       payload.append("discountPercent", String(Number(formData.discountPercent || 0)));
-
       payload.append("status", formData.status || "Available");
-      payload.append("isActive", formData.isActive); // "true"/"false"
+      payload.append("isActive", formData.isActive);
 
       payload.append("roomDescription", (formData.roomDescription || "").trim());
       payload.append("reserveCondition", (formData.reserveCondition || "").trim());
-
-      // ✅ file keys must match multer fields
       payload.append("coverImage", coverImage);
       galleryImages.slice(0, 5).forEach((file) => payload.append("galleryImages", file));
 

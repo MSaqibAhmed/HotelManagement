@@ -13,9 +13,12 @@ const ExploreRooms = () => {
   useEffect(() => {
     const fetchRooms = async () => {
       try {
-        const { data } = await api.get("/rooms/public/available");
-        // Only slice the first 3 for the home page
-        setFeatured(data.data?.slice(0, 3) || []);
+        const { data } = await api.get("/room/public/getrooms");
+        // Only slice the first 3 for the home page — prefer available rooms first
+        const sorted = (data.rooms || []).sort((a, b) =>
+          a.status === "Available" ? -1 : b.status === "Available" ? 1 : 0
+        );
+        setFeatured(sorted.slice(0, 3));
       } catch (err) {
         console.error("Failed to fetch rooms for ExploreRooms:", err);
       } finally {

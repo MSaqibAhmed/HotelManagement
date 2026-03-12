@@ -8,7 +8,7 @@ import {
   getMyReservations,
   getReservationById,
   cancelReservation,
-  updateGuestReservation,
+  updateReservation,
 } from "../Controllers/reservationController.js";
 
 import {
@@ -22,11 +22,15 @@ import {
   updateMyFeedback,
   deleteMyFeedback,
   updateHousekeepingRequestStatus,
+  getPublicFeedback,
 } from "../Controllers/guestController.js";
 
 const guestRoutes = express.Router();
 
-// Public (protect + guest role)
+// Public route (No auth required)
+guestRoutes.get("/public/feedback", getPublicFeedback);
+
+// Protect + guest role below 
 guestRoutes.use(protect, authorizeRoles("guest"));
 
 /* Reservations */
@@ -34,7 +38,7 @@ guestRoutes.get("/reservations/preview", previewReservation);
 guestRoutes.post("/reservations", createReservation);
 guestRoutes.get("/reservations", getMyReservations);
 guestRoutes.get("/reservations/:id", getReservationById);
-guestRoutes.put("/reservations/:id", updateGuestReservation);
+guestRoutes.put("/reservations/:id", updateReservation);
 guestRoutes.patch("/reservations/:id/cancel", cancelReservation);
 
 /* Current Stay */

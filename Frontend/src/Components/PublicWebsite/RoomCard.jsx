@@ -49,7 +49,7 @@ const RoomCard = ({ id, title, price, img, status, type }) => {
           {title}
         </h3>
         <p className="mt-1">
-          <span className="text-[#cbb19d] font-semibold text-sm">{price}$</span>
+          <span className="text-[#cbb19d] font-semibold text-sm">PKR {price}</span>
           <span className={`text-xs ml-1 ${dark ? "text-gray-500" : "text-gray-400"}`}>/ night</span>
         </p>
       </div>

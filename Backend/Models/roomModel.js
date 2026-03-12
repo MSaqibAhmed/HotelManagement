@@ -24,10 +24,7 @@ const roomSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
-    amenities: {
-      type: [String],
-      default: [],
-    },
+
     floor: {
       type: Number,
       required: true,

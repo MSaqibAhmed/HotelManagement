@@ -8,7 +8,7 @@ const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const { dark, setDark } = useTheme();
-  
+
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -19,7 +19,7 @@ const Navbar = () => {
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
-    
+
     // Auth Check
     const storedUser = localStorage.getItem("user");
     const token = localStorage.getItem("token");
@@ -67,25 +67,23 @@ const Navbar = () => {
   ];
 
   const linkClass = ({ isActive }) =>
-    `relative text-sm font-medium tracking-wide transition-colors duration-200 group ${
-      isActive
-        ? "text-[#cbb19d]"
-        : dark
+    `relative text-sm font-medium tracking-wide transition-colors duration-200 group ${isActive
+      ? "text-[#cbb19d]"
+      : dark
         ? "text-gray-300 hover:text-[#cbb19d]"
         : "text-gray-700 hover:text-[#9a836c]"
     }`;
 
   return (
     <header
-      className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ${
-        scrolled
+      className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ${scrolled
           ? dark
             ? "bg-[#111111]/95 backdrop-blur-md shadow-lg shadow-black/20"
             : "bg-white/95 backdrop-blur-md shadow-md"
           : dark
-          ? "bg-[#111111]"
-          : "bg-white"
-      }`}
+            ? "bg-[#111111]"
+            : "bg-white"
+        }`}
     >
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         {/* Logo */}
@@ -108,11 +106,10 @@ const Navbar = () => {
           {/* Dark mode toggle */}
           <button
             onClick={() => setDark(!dark)}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
-              dark
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${dark
                 ? "bg-[#2a2a2a] text-[#cbb19d] hover:bg-[#333]"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
+              }`}
             aria-label="Toggle theme"
           >
             {dark ? <Sun size={18} /> : <Moon size={18} />}
@@ -122,11 +119,10 @@ const Navbar = () => {
             <div ref={dropdownRef} className="relative ml-2">
               <button
                 onClick={() => setShowDropdown((p) => !p)}
-                className={`flex items-center gap-2 p-1.5 rounded-lg transition border ${
-                  showDropdown
+                className={`flex items-center gap-2 p-1.5 rounded-lg transition border ${showDropdown
                     ? dark ? "border-[#cbb19d] bg-[#1a1a1a]" : "border-[#cbb19d] bg-gray-50"
                     : dark ? "border-transparent hover:border-gray-700 hover:bg-[#1a1a1a]" : "border-transparent hover:border-gray-200 hover:bg-gray-50"
-                }`}
+                  }`}
               >
                 <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold bg-[#cbb19d]">
                   {initial}
@@ -145,26 +141,33 @@ const Navbar = () => {
               </button>
 
               {showDropdown && (
-                <div className={`absolute right-0 mt-2 w-56 rounded-xl shadow-lg border overflow-hidden z-50 ${
-                  dark ? "bg-[#1f1f1f] border-gray-800 shadow-black/40" : "bg-white border-gray-100 shadow-xl"
-                }`}>
+                <div className={`absolute right-0 mt-2 w-56 rounded-xl shadow-lg border overflow-hidden z-50 ${dark ? "bg-[#1f1f1f] border-gray-800 shadow-black/40" : "bg-white border-gray-100 shadow-xl"
+                  }`}>
                   <div className={`px-4 py-3 border-b ${dark ? "border-gray-800" : "border-gray-100"}`}>
                     <p className={`text-sm font-semibold truncate ${dark ? "text-white" : "text-gray-800"}`}>{user.name}</p>
                     <p className={`text-xs truncate ${dark ? "text-gray-400" : "text-gray-500"}`}>{user.email}</p>
                   </div>
-                  
+
                   <div className="py-1">
                     {String(user.role).toLowerCase() === "guest" ? (
-                      <Link to="/guest/dashboard" onClick={() => setShowDropdown(false)} className={`block px-4 py-2 text-sm font-medium transition-colors ${dark ? "text-gray-300 hover:text-[#cbb19d] hover:bg-[#111111]" : "text-gray-700 hover:text-[#cbb19d] hover:bg-gray-50"}`}>
-                        Guest Dashboard
-                      </Link>
+                      <>
+                        <Link to="/guest/my-reservations" onClick={() => setShowDropdown(false)} className={`block px-4 py-2 text-sm font-medium transition-colors ${dark ? "text-gray-300 hover:text-[#cbb19d] hover:bg-[#111111]" : "text-gray-700 hover:text-[#cbb19d] hover:bg-gray-50"}`}>
+                          My Reservations
+                        </Link>
+                        <Link to="/guest/request-services" onClick={() => setShowDropdown(false)} className={`block px-4 py-2 text-sm font-medium transition-colors ${dark ? "text-gray-300 hover:text-[#cbb19d] hover:bg-[#111111]" : "text-gray-700 hover:text-[#cbb19d] hover:bg-gray-50"}`}>
+                          Request Service / Tech
+                        </Link>
+                        <Link to="/guest/feedback" onClick={() => setShowDropdown(false)} className={`block px-4 py-2 text-sm font-medium transition-colors ${dark ? "text-gray-300 hover:text-[#cbb19d] hover:bg-[#111111]" : "text-gray-700 hover:text-[#cbb19d] hover:bg-gray-50"}`}>
+                          Feedback
+                        </Link>
+                      </>
                     ) : (
                       <Link to="/dashboard" onClick={() => setShowDropdown(false)} className={`block px-4 py-2 text-sm font-medium transition-colors ${dark ? "text-gray-300 hover:text-[#cbb19d] hover:bg-[#111111]" : "text-gray-700 hover:text-[#cbb19d] hover:bg-gray-50"}`}>
                         Admin Dashboard
                       </Link>
                     )}
                   </div>
-                  
+
                   <div className={`border-t py-1 ${dark ? "border-gray-800" : "border-gray-100"}`}>
                     <button
                       onClick={handleLogout}
@@ -180,11 +183,10 @@ const Navbar = () => {
             <>
               <NavLink
                 to="/login"
-                className={`text-sm font-medium px-4 py-2 rounded-full border transition-all duration-200 ${
-                  dark
+                className={`text-sm font-medium px-4 py-2 rounded-full border transition-all duration-200 ${dark
                     ? "border-gray-600 text-gray-300 hover:border-[#cbb19d] hover:text-[#cbb19d]"
                     : "border-gray-300 text-gray-700 hover:border-[#cbb19d] hover:text-[#9a836c]"
-                }`}
+                  }`}
               >
                 Login
               </NavLink>
@@ -203,9 +205,8 @@ const Navbar = () => {
         <div className="md:hidden flex items-center gap-3">
           <button
             onClick={() => setDark(!dark)}
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-              dark ? "bg-[#2a2a2a] text-[#cbb19d]" : "bg-gray-100 text-gray-600"
-            }`}
+            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${dark ? "bg-[#2a2a2a] text-[#cbb19d]" : "bg-gray-100 text-gray-600"
+              }`}
           >
             {dark ? <Sun size={16} /> : <Moon size={16} />}
           </button>
@@ -221,9 +222,8 @@ const Navbar = () => {
       {/* Mobile Menu */}
       {isOpen && (
         <div
-          className={`md:hidden px-6 py-6 space-y-3 border-t ${
-            dark ? "bg-[#111111] border-gray-800" : "bg-white border-gray-100"
-          }`}
+          className={`md:hidden px-6 py-6 space-y-3 border-t ${dark ? "bg-[#111111] border-gray-800" : "bg-white border-gray-100"
+            }`}
         >
           {navLinks.map((link) => (
             <NavLink
@@ -232,10 +232,9 @@ const Navbar = () => {
               end={link.path === "/"}
               onClick={() => setIsOpen(false)}
               className={({ isActive }) =>
-                `block py-2 text-sm font-medium transition-colors ${
-                  isActive
-                    ? "text-[#cbb19d]"
-                    : dark
+                `block py-2 text-sm font-medium transition-colors ${isActive
+                  ? "text-[#cbb19d]"
+                  : dark
                     ? "text-gray-300"
                     : "text-gray-700"
                 }`
@@ -258,9 +257,17 @@ const Navbar = () => {
                     </div>
                   </div>
                   {String(user.role).toLowerCase() === "guest" ? (
-                    <NavLink to="/guest/dashboard" onClick={() => setIsOpen(false)} className={`block w-full text-center py-2.5 rounded-lg border text-sm font-medium ${dark ? "border-gray-700 text-gray-300" : "border-gray-200 text-gray-700"} mb-2`}>
-                      Dashboard
-                    </NavLink>
+                    <>
+                      <NavLink to="/guest/my-reservations" onClick={() => setIsOpen(false)} className={`block w-full text-center py-2.5 rounded-lg border text-sm font-medium ${dark ? "border-gray-700 text-gray-300" : "border-gray-200 text-gray-700"} mb-2`}>
+                        My Reservations
+                      </NavLink>
+                      <NavLink to="/guest/request-services" onClick={() => setIsOpen(false)} className={`block w-full text-center py-2.5 rounded-lg border text-sm font-medium ${dark ? "border-gray-700 text-gray-300" : "border-gray-200 text-gray-700"} mb-2`}>
+                        Request Service / Tech
+                      </NavLink>
+                      <NavLink to="/guest/feedback" onClick={() => setIsOpen(false)} className={`block w-full text-center py-2.5 rounded-lg border text-sm font-medium ${dark ? "border-gray-700 text-gray-300" : "border-gray-200 text-gray-700"} mb-2`}>
+                        Feedback
+                      </NavLink>
+                    </>
                   ) : (
                     <NavLink to="/dashboard" onClick={() => setIsOpen(false)} className={`block w-full text-center py-2.5 rounded-lg border text-sm font-medium ${dark ? "border-gray-700 text-gray-300" : "border-gray-200 text-gray-700"} mb-2`}>
                       Admin Dashboard
@@ -282,9 +289,8 @@ const Navbar = () => {
                 <NavLink
                   to="/login"
                   onClick={() => setIsOpen(false)}
-                  className={`text-center py-2.5 rounded-full border text-sm font-medium ${
-                    dark ? "border-gray-600 text-gray-300" : "border-gray-300 text-gray-700"
-                  }`}
+                  className={`text-center py-2.5 rounded-full border text-sm font-medium ${dark ? "border-gray-600 text-gray-300" : "border-gray-300 text-gray-700"
+                    }`}
                 >
                   Login
                 </NavLink>

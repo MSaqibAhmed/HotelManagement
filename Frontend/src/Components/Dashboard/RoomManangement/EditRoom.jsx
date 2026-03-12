@@ -13,7 +13,6 @@ const initialForm = {
   roomName: "",
   roomType: "",
   typeDescription: "",
-  amenities: "",
 
   floor: "",
   capacity: "",
@@ -35,34 +34,6 @@ const initialForm = {
   reserveCondition: "",
 };
 
-const normalizeAmenities = (amenities) => {
-  if (Array.isArray(amenities)) {
-    return amenities
-      .map((a) => String(a).replace(/\r?\n/g, "").trim())
-      .filter(Boolean)
-      .join(", ");
-  }
-
-  if (typeof amenities === "string") {
-    try {
-      const parsed = JSON.parse(amenities);
-      if (Array.isArray(parsed)) {
-        return parsed
-          .map((a) => String(a).replace(/\r?\n/g, "").trim())
-          .filter(Boolean)
-          .join(", ");
-      }
-    } catch {}
-
-    return amenities
-      .split(",")
-      .map((a) => a.replace(/\r?\n/g, "").trim())
-      .filter(Boolean)
-      .join(", ");
-  }
-
-  return "";
-};
 
 const EditRoom = () => {
   const navigate = useNavigate();
@@ -103,7 +74,6 @@ const EditRoom = () => {
       roomName: room?.roomName || "",
       roomType: ROOM_TYPES.includes(room?.roomType) ? room.roomType : "",
       typeDescription: room?.typeDescription || "",
-      amenities: normalizeAmenities(room?.amenities),
 
       floor: room?.floor !== undefined && room?.floor !== null ? String(room.floor) : "",
       capacity: room?.capacity !== undefined && room?.capacity !== null ? String(room.capacity) : "",
@@ -200,16 +170,7 @@ const EditRoom = () => {
 
       const payload = new FormData();
 
-      const amenitiesArray = (formData.amenities || "")
-        .split(",")
-        .map((i) => i.trim())
-        .filter(Boolean);
-
-      payload.append("roomNumber", (formData.roomNumber || "").trim());
-      payload.append("roomName", (formData.roomName || "").trim());
-      payload.append("roomType", (formData.roomType || "").trim());
       payload.append("typeDescription", (formData.typeDescription || "").trim());
-      payload.append("amenities", JSON.stringify(amenitiesArray));
 
       payload.append("floor", String(Number(formData.floor || 0)));
       payload.append("capacity", String(Number(formData.capacity || 0)));
@@ -548,16 +509,6 @@ const EditRoom = () => {
               />
             </div>
 
-            <div>
-              <label className={labelClass}>Amenities (comma separated)</label>
-              <input
-                name="amenities"
-                value={formData.amenities}
-                onChange={handleChange}
-                placeholder="WiFi, AC, TV, Mini Bar"
-                className={inputClass}
-              />
-            </div>
 
             <div>
               <label className={labelClass}>Room Description</label>

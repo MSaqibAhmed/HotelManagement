@@ -1,5 +1,30 @@
 import Room from "../Models/roomModel.js";
+import Reservation from "../Models/reservationModel.js";
 import { deleteFromCloudinary } from "../config/uploadCloudinary.js";
+
+// Helpers reused from reservation logic (simplified here)
+const overlapQuery = (checkInDate, checkOutDate) => ({
+  checkInDate: { $lt: new Date(checkOutDate) },
+  checkOutDate: { $gt: new Date(checkInDate) },
+});
+
+const parseDates = (checkInDate, checkOutDate) => {
+  const inDate = new Date(checkInDate);
+  const outDate = new Date(checkOutDate);
+  if (Number.isNaN(inDate.getTime()) || Number.isNaN(outDate.getTime())) {
+    return { ok: false, message: "Invalid check-in/check-out date" };
+  }
+  if (inDate >= outDate) {
+    return { ok: false, message: "checkOutDate must be after checkInDate" };
+  }
+  return { ok: true, inDate, outDate };
+};
+
+const sanitizeCounts = (adults, children) => {
+  const a = Math.max(1, Number(adults || 1));
+  const c = Math.max(0, Number(children || 0));
+  return { adults: a, children: c };
+};
 
 export const createRoom = async (req, res) => {
   try {
@@ -11,7 +36,6 @@ export const createRoom = async (req, res) => {
       roomName,
       roomType,
       typeDescription,
-      amenities,
       floor,
       capacity,
       extraCapability,
@@ -40,19 +64,6 @@ export const createRoom = async (req, res) => {
     if (!roomType) {
       return res.status(400).json({ success: false, message: "Room type is required" });
     }
-    // amenities parse
-    let parsedAmenities = [];
-    if (amenities) {
-      try {
-        parsedAmenities = JSON.parse(amenities);
-        if (!Array.isArray(parsedAmenities)) parsedAmenities = [];
-      } catch (err) {
-        parsedAmenities = String(amenities)
-          .split(",")
-          .map((item) => item.trim())
-          .filter(Boolean);
-      }
-    }
 
     // files safe handling
     let coverImageData = { url: "", public_id: "" };
@@ -78,7 +89,6 @@ export const createRoom = async (req, res) => {
       roomName: roomName?.trim() || "",
       roomType: roomType?.trim(),
       typeDescription: typeDescription?.trim() || "",
-      amenities: parsedAmenities,
       floor: Number(floor),
       capacity: Number(capacity),
       extraCapability: extraCapability?.trim() || "",
@@ -213,13 +223,6 @@ export const updateRoom = async (req, res) => {
     room.roomType = req.body.roomType?.trim() || room.roomType;
     room.typeDescription =
       req.body.typeDescription?.trim() || room.typeDescription;
-
-    if (req.body.amenities) {
-      room.amenities = req.body.amenities
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean);
-    }
 
     room.floor = req.body.floor ? Number(req.body.floor) : room.floor;
     room.capacity = req.body.capacity ? Number(req.body.capacity) : room.capacity;
@@ -360,12 +363,79 @@ export const updateRoomActiveStatus = async (req, res) => {
   }
 };
 
+export const getPublicRooms = async (req, res) => {
+  try {
+    const rooms = await Room.find({ isActive: true }).sort({ createdAt: -1 });
+    return res.json({ count: rooms.length, rooms });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to fetch rooms",
+      error: error.message,
+    });
+  }
+};
+
 export const getAvailableRooms = async (req, res) => {
   try {
-    const rooms = await Room.find({
-      status: "Available",
+    const {
+      checkInDate,
+      checkOutDate,
+      adults = 1,
+      children = 0,
+      roomType,
+    } = req.query;
+
+    // If no date range provided, fall back to simple \"currently available\" rooms
+    if (!checkInDate || !checkOutDate) {
+      const rooms = await Room.find({
+        status: "Available",
+        isActive: true,
+      }).sort({ createdAt: -1 });
+
+      return res.json({
+        count: rooms.length,
+        rooms,
+      });
+    }
+
+    const d = parseDates(checkInDate, checkOutDate);
+    if (!d.ok) {
+      return res.status(400).json({
+        message: d.message,
+      });
+    }
+
+    const counts = sanitizeCounts(adults, children);
+    const totalPersons = counts.adults + counts.children;
+
+    const match = {
+      bookingStatus: { $in: ["Pending", "Confirmed", "Checked-In"] },
+      ...overlapQuery(d.inDate, d.outDate),
+    };
+
+    if (roomType) {
+      match.roomType = String(roomType).trim();
+    }
+
+    const existingReservations = await Reservation.find(match).select("room");
+    const bookedRoomIds = existingReservations.map((r) => r.room);
+
+    const roomFilter = {
       isActive: true,
-    }).sort({ createdAt: -1 });
+      status: { $ne: "Maintenance" },
+      _id: { $nin: bookedRoomIds },
+    };
+
+    if (roomType) {
+      roomFilter.roomType = String(roomType).trim();
+    }
+
+    // Capacity filter based on requested guests
+    if (totalPersons > 0) {
+      roomFilter.capacity = { $gte: totalPersons };
+    }
+
+    const rooms = await Room.find(roomFilter).sort({ createdAt: -1 });
 
     return res.json({
       count: rooms.length,

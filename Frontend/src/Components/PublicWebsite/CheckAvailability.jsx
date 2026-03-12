@@ -16,7 +16,7 @@ const CheckAvailability = () => {
   const [guests,   setGuests]   = useState("2");
 
   const handleSearch = () => {
-    navigate(`/rooms?checkin=${checkIn}&checkout=${checkOut}&rooms=${rooms}&guests=${guests}`);
+    navigate(`/rooms?checkIn=${checkIn}&checkOut=${checkOut}&rooms=${rooms}&guests=${guests}`);
   };
 
   const bg    = dark ? "bg-[#1a1a1a] border-gray-800" : "bg-[#faf8f6] border-gray-100";

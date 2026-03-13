@@ -13,52 +13,90 @@ const Login = () => {
   // ✅ NEW: field errors for empty inputs
   const [errors, setErrors] = useState({});
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const [touched, setTouched] = useState({});
 
-    // ✅ NEW: remove error as user types
-    setErrors((prev) => ({ ...prev, [e.target.name]: "" }));
+  // Complex email regex that specifically checks for starting dot, consecutive dots, etc
+  const emailRegex = /^(?!\.)(?!.*\.\.)[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+  const validateField = (name, value) => {
+    let error = "";
+    if (!value || value.trim() === "") {
+      error = `${name.charAt(0).toUpperCase() + name.slice(1)} is required`;
+    } else {
+      switch (name) {
+        case "email":
+          if (value.startsWith(".")) {
+             error = "Email cannot start with a dot (.)";
+          } else if (!emailRegex.test(value)) {
+             error = "Please enter a valid email address (e.g., mail@domain.com)";
+          }
+          break;
+        case "password":
+          if (!passwordRegex.test(value)) error = "Password must be 8+ chars, 1 uppercase, 1 lowercase, 1 number, 1 special char";
+          break;
+        default:
+          break;
+      }
+    }
+    return error;
   };
 
-  // ✅ NEW: required validation (empty fields)
-  const validateRequired = () => {
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    const newData = { ...formData, [name]: value };
+    setFormData(newData);
+    
+    // Live validation
+    if (touched[name] || value !== "") {
+       const error = validateField(name, value);
+       setErrors((prev) => ({ ...prev, [name]: error }));
+    }
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    setTouched((prev) => ({ ...prev, [name]: true }));
+    const error = validateField(name, value);
+    setErrors((prev) => ({ ...prev, [name]: error }));
+  };
+
+  const validateAll = () => {
     const newErrors = {};
+    const fields = ["email", "password"];
+    
+    // Mark all as touched
+    const newTouched = {};
+    fields.forEach(f => newTouched[f] = true);
+    setTouched(newTouched);
 
-    const email = (formData.email || "").trim();
-    const password = (formData.password || "").trim();
-
-    if (!email) newErrors.email = "Email is required";
-    if (!password) newErrors.password = "Password is required";
+    fields.forEach(field => {
+      const error = validateField(field, formData[field] || "");
+      if (error) newErrors[field] = error;
+    });
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const validateLogin = () => {
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{6,}$/;
-
-    if (!emailRegex.test(formData.email || "")) {
-      toast.error("Please enter a valid email address");
-      return false;
+  const getInputStyle = (fieldName) => {
+    const baseStyle = "w-full px-4 py-3.5 border rounded-xl focus:ring-4 outline-none transition-all";
+    if (!touched[fieldName] && !formData[fieldName]) {
+        return `${baseStyle} bg-gray-50/50 border-gray-200 focus:ring-blue-50 focus:border-blue-500`;
     }
-
-    if (!passwordRegex.test(formData.password || "")) {
-      toast.error("Password must have uppercase, number, special char & 6 length");
-      return false;
+    if (errors[fieldName]) {
+        return `${baseStyle} bg-red-50 border-red-500 focus:ring-red-100 focus:border-red-500 text-red-900`;
     }
-
-    return true;
+    return `${baseStyle} bg-green-50 border-green-500 focus:ring-green-100 focus:border-green-500 text-green-900`;
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    // ✅ NEW: required first (empty check)
-    if (!validateRequired()) return;
-
-    // ✅ Existing validation (regex/toast) stays
-    if (!validateLogin()) return;
+    if (!validateAll()) {
+      toast.error("Please fix the errors before submitting");
+      return;
+    }
 
     setLoading(true);
 
@@ -136,12 +174,13 @@ const Login = () => {
                 type="email"
                 name="email"
                 placeholder="info@gmail.com"
+                value={formData.email || ""}
                 onChange={handleChange}
-                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-4 focus:ring-blue-50 outline-none transition-all bg-gray-50/50 ${errors.email ? "border-red-500" : "border-gray-200"
-                  }`}
+                onBlur={handleBlur}
+                className={getInputStyle("email")}
               />
               {errors.email && (
-                <p className="text-red-500 text-xs font-semibold mt-2">
+                <p className="text-red-500 text-xs font-semibold mt-2 transition-all">
                   {errors.email}
                 </p>
               )}
@@ -155,12 +194,13 @@ const Login = () => {
                 type="password"
                 name="password"
                 placeholder="Enter Password"
+                value={formData.password || ""}
                 onChange={handleChange}
-                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-4 focus:ring-blue-50 outline-none transition-all bg-gray-50/50 ${errors.password ? "border-red-500" : "border-gray-200"
-                  }`}
+                onBlur={handleBlur}
+                className={getInputStyle("password")}
               />
               {errors.password && (
-                <p className="text-red-500 text-xs font-semibold mt-2">
+                <p className="text-red-500 text-xs font-semibold mt-2 transition-all">
                   {errors.password}
                 </p>
               )}

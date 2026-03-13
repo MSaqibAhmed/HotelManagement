@@ -123,7 +123,6 @@ export const createStaff = async (req, res) => {
 
 export const getStaff = async (req, res) => {
   try {
-    // guest ko chhor kar baaki sab staff
     const staff = await User.find({ role: { $ne: "guest" } })
       .select("-password")
       .sort({ createdAt: -1 });
@@ -190,8 +189,6 @@ export const deleteStaff = async (req, res) => {
     });
   }
 };
-
-//Active or Deactive staff by admin
 export const updateStaffStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -220,7 +217,6 @@ export const updateStaffStatus = async (req, res) => {
 };
 
 
-// GET /api/auth/guest-by-email?email=...
 export const getGuestByEmail = async (req, res) => {
   try {
     const email = String(req.query.email || "").toLowerCase().trim();

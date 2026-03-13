@@ -15,17 +15,17 @@ export const routePermissions = {
 
   // Room Management
   "/dashboard/room-management/rooms": [ROLES.ADMIN, ROLES.MANAGER, ROLES.RECEPTIONIST],
-  "/dashboard/room-management/add-room": [ROLES.ADMIN],
-  "/dashboard/room-management/edit-room": [ROLES.ADMIN],
-  "/dashboard/room-management/pricing-control": [ROLES.ADMIN],
+  "/dashboard/room-management/add-room": [ROLES.ADMIN, ROLES.MANAGER],
+  "/dashboard/room-management/edit-room": [ROLES.ADMIN, ROLES.MANAGER],
+  "/dashboard/room-management/pricing-control": [ROLES.ADMIN, ROLES.MANAGER],
   "/dashboard/room-management/status-overview": [ROLES.ADMIN, ROLES.MANAGER, ROLES.RECEPTIONIST],
 
   // Reservations
   "/dashboard/reservations": [ROLES.ADMIN, ROLES.MANAGER, ROLES.RECEPTIONIST],
   "/dashboard/reservations/create": [ROLES.ADMIN, ROLES.MANAGER, ROLES.RECEPTIONIST],
   "/dashboard/reservations/modify": [ROLES.ADMIN, ROLES.MANAGER, ROLES.RECEPTIONIST],
-  "/dashboard/reservations/check-in": [ROLES.ADMIN, ROLES.RECEPTIONIST],
-  "/dashboard/reservations/check-out": [ROLES.ADMIN, ROLES.RECEPTIONIST],
+  "/dashboard/reservations/check-in": [ROLES.ADMIN, ROLES.MANAGER, ROLES.RECEPTIONIST],
+  "/dashboard/reservations/check-out": [ROLES.ADMIN, ROLES.MANAGER, ROLES.RECEPTIONIST],
 
   // Billing
   "/dashboard/billing": [ROLES.ADMIN, ROLES.MANAGER, ROLES.RECEPTIONIST],
@@ -34,9 +34,10 @@ export const routePermissions = {
 
   // Housekeeping
   "/dashboard/housekeeping/room-status": [ROLES.ADMIN, ROLES.MANAGER, ROLES.RECEPTIONIST, ROLES.HOUSEKEEPING],
-  "/dashboard/housekeeping/assigned-tasks": [ROLES.ADMIN, ROLES.MANAGER, ROLES.RECEPTIONIST], // only admin/managers assign
+  "/dashboard/housekeeping/assigned-tasks": [ROLES.ADMIN, ROLES.MANAGER, ROLES.RECEPTIONIST],
   "/dashboard/housekeeping/cleaning-report": [ROLES.ADMIN, ROLES.MANAGER, ROLES.RECEPTIONIST, ROLES.HOUSEKEEPING],
   "/dashboard/housekeeping/checklist": [ROLES.ADMIN, ROLES.MANAGER, ROLES.RECEPTIONIST, ROLES.HOUSEKEEPING],
+  "/dashboard/housekeeping/assign": [ROLES.ADMIN, ROLES.MANAGER, ROLES.RECEPTIONIST],
 
   // Maintenance
   "/dashboard/maintenance/requests": [ROLES.ADMIN, ROLES.MANAGER, ROLES.RECEPTIONIST, ROLES.MAINTENANCE],

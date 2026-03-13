@@ -8,8 +8,6 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
-
-// ✅ same as your room fields
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {

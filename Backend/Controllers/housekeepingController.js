@@ -66,7 +66,7 @@ export const createHousekeepingTask = async (req, res) => {
 
     const activeTask = await HousekeepingTask.findOne({
       room: room._id,
-      taskType: taskType || "CheckoutCleaning", // only block if same type
+      taskType: taskType || "CheckoutCleaning",
       status: { $in: ["Pending", "Assigned", "InProgress"] },
       isActive: true,
     });
@@ -184,8 +184,6 @@ export const getHousekeepingTasks = async (req, res) => {
     });
   }
 };
-
-// GET SINGLE TASK
 export const getHousekeepingTaskById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -217,8 +215,6 @@ export const getHousekeepingTaskById = async (req, res) => {
     });
   }
 };
-
-// ASSIGN / REASSIGN TASK
 export const assignHousekeepingTask = async (req, res) => {
   try {
     const { id } = req.params;
@@ -269,8 +265,6 @@ export const assignHousekeepingTask = async (req, res) => {
     });
   }
 };
-
-// UPDATE TASK STATUS
 export const updateHousekeepingTaskStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -310,7 +304,6 @@ export const updateHousekeepingTaskStatus = async (req, res) => {
 
     if (status === "Completed") {
       task.completedAt = new Date();
-      // Restore room status on completion
       if (task.room && task.room._id) {
         const roomToRestore = await Room.findById(task.room._id || task.room);
         if (roomToRestore) {
@@ -331,7 +324,6 @@ export const updateHousekeepingTaskStatus = async (req, res) => {
 
     if (status === "Cancelled") {
       task.isActive = false;
-      // Also restore room on cancel
       if (task.room) {
         const roomToRestore = await Room.findById(task.room._id || task.room);
         if (roomToRestore && roomToRestore.status === "Cleaning") {
@@ -371,8 +363,6 @@ export const updateHousekeepingTaskStatus = async (req, res) => {
     });
   }
 };
-
-// UPDATE CHECKLIST
 export const updateTaskChecklist = async (req, res) => {
   try {
     const { id } = req.params;
@@ -410,8 +400,6 @@ export const updateTaskChecklist = async (req, res) => {
     });
   }
 };
-
-// SUBMIT CLEANING REPORT
 export const submitCleaningReport = async (req, res) => {
   try {
     const { id } = req.params;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import logo from "../../assets/logo.png";
-import { sidebarPermissions, checkAccess } from "../../context/roleConfig";
+import { sidebarPermissions, checkAccess, routePermissions } from "../../context/roleConfig";
 import {
   FaChevronDown,
   FaTachometerAlt,
@@ -145,6 +145,7 @@ const DashboardSidebar = ({ open, setOpen, collapsed, setCollapsed }) => {
       parentPath: "/dashboard/housekeeping/room-status",
       subItems: [
         { title: "Room Status", path: "/dashboard/housekeeping/room-status", icon: <FaClipboardCheck /> },
+        { title: "Assign Tasks", path: "/dashboard/housekeeping/assign", icon: <FaUserFriends /> },
         { title: "Assigned Tasks", path: "/dashboard/housekeeping/assigned-tasks", icon: <FaTasks /> },
         { title: "Cleaning Report", path: "/dashboard/housekeeping/cleaning-report", icon: <FaChartBar /> },
         { title: "Checklist", path: "/dashboard/housekeeping/checklist", icon: <FaClipboardList /> },
@@ -245,7 +246,13 @@ const DashboardSidebar = ({ open, setOpen, collapsed, setCollapsed }) => {
               return checkAccess(userRole, reqRoles);
             })
             .map((item) => {
-              const parentActive = item.subItems ? isSubActive(item.subItems) : isActive(item.path);
+              const visibleSubItems = item.subItems
+                ? item.subItems.filter((sub) => {
+                    const reqRoles = routePermissions[sub.path] || [];
+                    return checkAccess(userRole, reqRoles);
+                  })
+                : [];
+              const parentActive = visibleSubItems.length > 0 ? isSubActive(visibleSubItems) : isActive(item.path);
 
               // Single Menu Item
               if (item.type === "single") {
@@ -305,7 +312,7 @@ const DashboardSidebar = ({ open, setOpen, collapsed, setCollapsed }) => {
                   {/* Sub-Items when Expanded */}
                   {expanded && !collapsed && (
                     <div className="ml-6 mt-1 mb-2 pl-3 border-l-2 space-y-1" style={{ borderColor: `${THEME}66` }}>
-                      {item.subItems.map((sub) => {
+                      {visibleSubItems.map((sub) => {
                         const subActive = isActive(sub.path);
                         return (
                           <Link
@@ -330,7 +337,7 @@ const DashboardSidebar = ({ open, setOpen, collapsed, setCollapsed }) => {
                   {/* Sub-Items Icons when Collapsed */}
                   {expanded && collapsed && (
                     <div className="ml-2 mt-1 space-y-1">
-                      {item.subItems.map((sub) => {
+                      {visibleSubItems.map((sub) => {
                         const subActive = isActive(sub.path);
                         return (
                           <Link

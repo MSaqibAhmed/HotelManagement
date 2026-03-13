@@ -47,17 +47,18 @@ const InvoiceDetail = () => {
 
   const downloadPdf = async () => {
     try {
-      const res = await api.get(`/billing/invoices/${id}/pdf`, { responseType: "blob" });
-      const blob = new Blob([res.data], { type: "application/pdf" });
+      const res = await api.get(`/billing/invoices/${id}/pdf`, { responseType: "text" });
+      const blob = new Blob([res.data], { type: "text/html" });
       const url = window.URL.createObjectURL(blob);
 
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${invoice?.invoiceNumber || "invoice"}.pdf`;
+      a.download = `${invoice?.invoiceNumber || "invoice"}.html`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
+      toast.success("Invoice downloaded!");
     } catch (err) {
       toast.error(err?.response?.data?.message || "PDF download failed");
     }
@@ -158,7 +159,7 @@ const InvoiceDetail = () => {
               <div>
                 <p className="text-gray-500">Amount</p>
                 <p className="text-2xl font-black text-[#1e266d]">
-                  Rs {Number(invoice?.amount || 0).toLocaleString()}
+                  Rs {Number(invoice?.totalAmount || 0).toLocaleString()}
                 </p>
               </div>
 

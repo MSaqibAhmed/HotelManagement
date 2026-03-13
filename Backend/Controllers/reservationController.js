@@ -557,7 +557,8 @@ export const confirmOnlineReservationPayment = async (req, res) => {
       invoice = await Invoice.create({
         reservation: reservation._id,
         guest: reservation.guest,
-        amount,
+        totalAmount: amount,
+        paidAmount: amount,
         method,
         status: "Paid",
         receipt,
@@ -565,13 +566,13 @@ export const confirmOnlineReservationPayment = async (req, res) => {
         confirmedAt: new Date(),
       });
     } else {
-      invoice.amount = amount;
+      invoice.totalAmount = amount;
+      invoice.paidAmount = amount;
       invoice.method = method;
-      invoice.status = "Paid";
       invoice.receipt = receipt;
       invoice.confirmedBy = req.user._id;
       invoice.confirmedAt = new Date();
-      await invoice.save();
+      await invoice.save(); // pre-validate sets status = "Paid"
     }
 
     reservation.payment.status = "Paid";

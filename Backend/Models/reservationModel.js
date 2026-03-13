@@ -118,16 +118,12 @@ const reservationSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
-// ✅ Auto reservation number
 reservationSchema.pre("save", function () {
   if (!this.reservationNumber) {
     const stamp = Date.now().toString().slice(-6);
     this.reservationNumber = `RSV-${new Date().getFullYear()}-${stamp}`;
   }
 });
-
-// ✅ Nights calc
 reservationSchema.pre("save", function () {
   if (this.checkInDate && this.checkOutDate) {
     const ms =

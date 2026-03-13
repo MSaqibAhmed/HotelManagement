@@ -107,6 +107,12 @@ const ReservationsList = () => {
 
       const status = r?.bookingStatus || "Pending";
 
+      const paymentStatusStyle = r?.payment?.status === "Paid" 
+        ? "bg-emerald-50 text-emerald-600 border border-emerald-200" 
+        : r?.payment?.status === "Rejected"
+        ? "bg-red-50 text-red-600 border border-red-200"
+        : "bg-amber-50 text-amber-600 border border-amber-200";
+
       return {
         _id: r?._id,
         bookingId,
@@ -122,6 +128,8 @@ const ReservationsList = () => {
         guestsText,
         amount,
         status,
+        paymentStatus: r?.payment?.status || "Pending",
+        paymentStatusStyle,
         raw: r,
       };
     });
@@ -270,6 +278,7 @@ const ReservationsList = () => {
                       Check-in / Check-out
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Payment</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Amount</th>
                     <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">Actions</th>
                   </tr>
@@ -322,6 +331,12 @@ const ReservationsList = () => {
                             )}`}
                           >
                             {res.status}
+                          </span>
+                        </td>
+
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${res.paymentStatusStyle}`}>
+                            {res.paymentStatus}
                           </span>
                         </td>
 
@@ -519,6 +534,13 @@ const ReservationsList = () => {
                   <p className="text-xs text-gray-500 uppercase font-semibold">Guest</p>
                   <p className="font-medium text-gray-800">{selectedReservation.guestName}</p>
                   <p className="text-xs text-gray-500">{selectedReservation.guestEmail}</p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Payment</p>
+                  <span className={`inline-flex px-3 py-1 mt-1 rounded-full text-xs font-medium ${selectedReservation.paymentStatusStyle}`}>
+                    {selectedReservation.paymentStatus}
+                  </span>
                 </div>
 
                 <div>

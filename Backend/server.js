@@ -9,6 +9,7 @@ import billingRoutes from './Routes/billingRoutes.js';
 import guestRoutes from './Routes/guestRoutes.js';
 import housekeepingRoutes from './Routes/housekeepingRoutes.js';
 import maintainenceRoutes from './Routes/maintainenceRoutes.js';
+import dashboardRoutes from './Routes/dashboardRoutes.js';
 
 const app = express();
 app.use(cors())
@@ -24,6 +25,7 @@ app.use('/api/billing', billingRoutes)
 app.use('/api/guest', guestRoutes)
 app.use('/api/housekeeping', housekeepingRoutes)
 app.use('/api/maintenance', maintainenceRoutes)
+app.use('/api/dashboard', dashboardRoutes)
 const PORT = process.env.PORT;
 
 app.listen(PORT, () => {

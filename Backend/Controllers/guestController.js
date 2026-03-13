@@ -518,9 +518,8 @@ export const deleteMyFeedback = async (req, res) => {
 
 export const getPublicFeedback = async (req, res) => {
   try {
-    // Fetch top 6 feedback that have good rating or are marked as Reviewed (or just latest 6 for now)
     const feedback = await Feedback.find({})
-      .sort({ rating: -1, createdAt: -1 }) // Best ratings first
+      .sort({ rating: -1, createdAt: -1 })
       .limit(6);
 
     res.json({ feedback });

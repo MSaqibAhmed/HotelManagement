@@ -52,8 +52,6 @@ const StaffList = () => {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredStaff.slice(start, start + itemsPerPage);
   }, [filteredStaff, currentPage]);
-
-  // Toggle active/inactive
   const toggleStatus = async (staff) => {
     try {
       const newStatus = !staff.isActive;

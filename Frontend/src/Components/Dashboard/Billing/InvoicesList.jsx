@@ -148,15 +148,15 @@ const InvoicesList = () => {
       setActionLoadingId(invoice._id);
 
       const response = await api.get(`/billing/invoices/${invoice._id}/pdf`, {
-        responseType: "blob",
+        responseType: "text",
       });
 
-      const blob = new Blob([response.data], { type: "application/pdf" });
+      const blob = new Blob([response.data], { type: "text/html" });
       const url = window.URL.createObjectURL(blob);
 
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${invoice.invoiceId || "invoice"}.pdf`;
+      link.download = `${invoice.invoiceId || "invoice"}.html`;
       document.body.appendChild(link);
       link.click();
       link.remove();

@@ -121,6 +121,7 @@ function App() {
           
           {/* Housekeeping */}
           <Route path="housekeeping/room-status" element={<RoleRoute allowedRoles={routePermissions["/dashboard/housekeeping/room-status"]}><Cleaning /></RoleRoute>} />
+          <Route path="housekeeping/assign" element={<RoleRoute allowedRoles={routePermissions["/dashboard/housekeeping/assign"]}><Assign /></RoleRoute>} />
           <Route path="housekeeping/assigned-tasks" element={<RoleRoute allowedRoles={routePermissions["/dashboard/housekeeping/assigned-tasks"]}><Assign /></RoleRoute>} />
           <Route path="housekeeping/cleaning-report" element={<RoleRoute allowedRoles={routePermissions["/dashboard/housekeeping/cleaning-report"]}><CleaningReport /></RoleRoute>} />
           <Route path="housekeeping/checklist" element={<RoleRoute allowedRoles={routePermissions["/dashboard/housekeeping/checklist"]}><HousekeepingChecklist /></RoleRoute>} />

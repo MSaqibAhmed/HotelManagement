@@ -335,7 +335,7 @@ export const generateInvoicePdf = async (req, res) => {
 <div class="page">
   <div class="header">
     <div>
-      <div class="hotel-name">GrandStay Hotel</div>
+      <div class="hotel-name">LuxuryStay Hotel</div>
       <div class="hotel-sub">Premium Hotel Management</div>
     </div>
     <div class="inv-title">

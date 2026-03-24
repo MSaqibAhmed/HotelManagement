@@ -155,9 +155,6 @@ const Payments = () => {
     if (!confirmRow?._id) return;
     try {
       setConfirmLoading(true);
-
-      // ✅ Preferred endpoint (you can add in backend):
-      // PATCH /api/reservation/:id/confirm-online
       await api.patch(`/reservation/${confirmRow._id}/confirm-online`);
 
       toast.success("Payment verified & booking confirmed");
@@ -178,8 +175,6 @@ const Payments = () => {
     try {
       setConfirmLoading(true);
 
-      // ✅ Optional endpoint if you build it:
-      // PATCH /api/reservation/:id/reject-online
       await api.patch(`/reservation/${confirmRow._id}/reject-online`, { note });
 
       toast.success("Payment rejected");

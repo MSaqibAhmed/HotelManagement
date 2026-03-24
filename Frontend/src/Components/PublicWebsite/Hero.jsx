@@ -2,10 +2,16 @@ import React from "react";
 import HeroImage from "../../assets/HeroSection.png";
 import { Link } from "react-router-dom";
 import { ArrowRight, Star } from "lucide-react";
+import { useTheme } from "../../context/ThemeContext";
 
 const Hero = () => {
+  const { dark } = useTheme();
+
   return (
-    <section className="w-full min-h-screen bg-white dark:bg-[#111111] flex justify-center items-center pt-16">
+    <section
+      className="w-full min-h-screen flex justify-center items-center pt-16"
+      style={{ backgroundColor: dark ? "#111111" : "#ffffff" }}
+    >
       <div className="relative w-full md:w-[90%] h-screen md:h-[88vh] md:mt-6 md:rounded-3xl overflow-hidden shadow-2xl">
 
         <img

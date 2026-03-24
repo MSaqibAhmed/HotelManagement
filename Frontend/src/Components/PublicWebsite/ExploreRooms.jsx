@@ -59,7 +59,6 @@ const ExploreRooms = () => {
                 title={room.roomName || room.roomNumber}
                 price={room.pricing?.basePrice}
                 img={room.coverImage?.url || "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80"}
-                /* No status/type badges on home page — clean look */
               />
             ))}
           </div>

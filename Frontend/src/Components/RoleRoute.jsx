@@ -3,9 +3,7 @@ import { Navigate } from "react-router-dom";
 const RoleRoute = ({ allowedRoles, children }) => {
   const userStr = localStorage.getItem("user");
   const user = userStr ? JSON.parse(userStr) : {};
-  const userRole = user?.role?.toLowerCase() || "";
-
-  // Admin fallback logic: Admins can bypass explicit role arrays
+  const userRole = user?.role?.toLowerCase();
   if (userRole === "admin") {
     return children;
   }

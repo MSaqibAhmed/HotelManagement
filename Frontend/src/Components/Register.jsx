@@ -60,8 +60,6 @@ const Register = () => {
     const { name, value } = e.target;
     const newData = { ...formData, [name]: value };
     setFormData(newData);
-    
-    // Live validation
     if (touched[name] || value !== "") {
        const error = validateField(name, value, newData);
        setErrors((prev) => ({ ...prev, [name]: error }));

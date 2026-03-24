@@ -2,10 +2,6 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
 
-/**
- * RoomCard — reusable card component
- * Props: id, title, price, img, status (optional), type (optional)
- */
 const RoomCard = ({ id, title, price, img, status, type }) => {
   const { dark } = useTheme();
 

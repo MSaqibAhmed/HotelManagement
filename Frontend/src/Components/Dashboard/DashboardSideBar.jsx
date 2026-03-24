@@ -225,6 +225,7 @@ const DashboardSidebar = ({ open, setOpen, collapsed, setCollapsed }) => {
 
         {/* Logo Section */}
         <div className="h-20 border-b border-gray-200 flex items-center justify-center px-4 bg-white shrink-0 overflow-hidden">
+            <Link to="/">
           <div className={`flex items-center gap-3 w-full transition-all duration-300 ${collapsed ? "justify-center" : "justify-start"}`}>
             <img
               src={logo}
@@ -236,6 +237,7 @@ const DashboardSidebar = ({ open, setOpen, collapsed, setCollapsed }) => {
               <p className="text-xs text-gray-500">Hotel Management</p>
             </div>
           </div>
+            </Link>
         </div>
 
         {/* Menu Items */}

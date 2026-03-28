@@ -1,6 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { ChevronDown } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useGSAP } from "@gsap/react";
+
+gsap.registerPlugin(ScrollTrigger);
 
 const faqs = [
   { q: "What are the check-in and check-out times?", a: "Check-in begins at 3:00 PM and check-out is at 11:00 AM. Early check-in and late check-out can be requested based on availability." },
@@ -14,17 +19,37 @@ const faqs = [
 const FAQ = () => {
   const [open, setOpen] = useState(null);
   const { dark } = useTheme();
+  const sectionRef = useRef(null);
+
+  useGSAP(() => {
+    gsap.fromTo(
+      ".faq-header",
+      { opacity: 0, y: 40 },
+      {
+        opacity: 1, y: 0, duration: 0.7, ease: "power3.out",
+        scrollTrigger: { trigger: ".faq-header", start: "top 85%", toggleActions: "play none none none" }
+      }
+    );
+    gsap.fromTo(
+      ".faq-item",
+      { opacity: 0, x: -30 },
+      {
+        opacity: 1, x: 0, duration: 0.5, stagger: 0.1, ease: "power3.out",
+        scrollTrigger: { trigger: ".faq-item", start: "top 85%", toggleActions: "play none none none" }
+      }
+    );
+  }, { scope: sectionRef });
 
   return (
-    <section className={`py-20 px-6 ${dark ? "bg-[#111111]" : "bg-white"}`}>
+    <section ref={sectionRef} className={`py-20 px-6 ${dark ? "bg-[#111111]" : "bg-white"}`}>
       <div className="max-w-3xl mx-auto">
-        <div className="text-center mb-12">
+        <div className="faq-header text-center mb-12">
           <p className="text-[#cbb19d] text-sm font-medium uppercase tracking-widest mb-2">Got Questions?</p>
           <h2 className={`text-3xl md:text-4xl font-serif ${dark ? "text-white" : "text-gray-900"}`}>Frequently Asked</h2>
         </div>
         <div className="space-y-3">
           {faqs.map((faq, i) => (
-            <div key={i} className={`border rounded-xl overflow-hidden transition-all ${dark ? "border-gray-800 bg-[#1a1a1a]" : "border-gray-100 bg-[#faf8f6]"}`}>
+            <div key={i} className={`faq-item border rounded-xl overflow-hidden transition-all ${dark ? "border-gray-800 bg-[#1a1a1a]" : "border-gray-100 bg-[#faf8f6]"}`}>
               <button
                 onClick={() => setOpen(open === i ? null : i)}
                 className={`w-full flex items-center justify-between px-6 py-4 text-left ${dark ? "text-white" : "text-gray-800"}`}

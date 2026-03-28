@@ -1,14 +1,54 @@
-import React from "react";
+import React, { useRef } from "react";
 import HeroImage from "../../assets/HeroSection.png";
 import { Link } from "react-router-dom";
 import { ArrowRight, Star } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
+
+gsap.registerPlugin();
 
 const Hero = () => {
   const { dark } = useTheme();
+  const containerRef = useRef(null);
+
+  useGSAP(() => {
+    const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+
+    tl.fromTo(
+      ".hero-badge",
+      { opacity: 0, y: -20 },
+      { opacity: 1, y: 0, duration: 0.6 }
+    )
+      .fromTo(
+        ".hero-heading",
+        { opacity: 0, y: 50, skewY: 3 },
+        { opacity: 1, y: 0, skewY: 0, duration: 0.9 },
+        "-=0.2"
+      )
+      .fromTo(
+        ".hero-para",
+        { opacity: 0, y: 30 },
+        { opacity: 1, y: 0, duration: 0.7 },
+        "-=0.4"
+      )
+      .fromTo(
+        ".hero-btn",
+        { opacity: 0, y: 20, scale: 0.95 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.5, stagger: 0.15 },
+        "-=0.3"
+      )
+      .fromTo(
+        ".hero-stat",
+        { opacity: 0, y: 20 },
+        { opacity: 1, y: 0, duration: 0.5, stagger: 0.1 },
+        "-=0.2"
+      );
+  }, { scope: containerRef });
 
   return (
     <section
+      ref={containerRef}
       className="w-full min-h-screen flex justify-center items-center pt-16"
       style={{ backgroundColor: dark ? "#111111" : "#ffffff" }}
     >
@@ -23,33 +63,33 @@ const Hero = () => {
 
         <div className="relative z-10 h-full flex items-center px-8 md:px-20">
           <div className="max-w-xl">
-            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2 mb-6">
+            <div className="hero-badge inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2 mb-6">
               <div className="flex gap-0.5">
                 {[...Array(5)].map((_,i) => <Star key={i} size={12} className="text-[#cbb19d] fill-[#cbb19d]" />)}
               </div>
               <span className="text-white text-xs font-medium tracking-wide">5-Star Luxury Experience</span>
             </div>
 
-            <h1 className="text-white text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-serif leading-tight">
+            <h1 className="hero-heading text-white text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-serif leading-tight">
               Discover True <br />
               <span className="italic text-[#d6c3b3]">Hospitality</span> <br />
-              & Luxury
+              &amp; Luxury
             </h1>
 
-            <p className="mt-6 text-white/80 text-base md:text-lg max-w-md leading-relaxed">
+            <p className="hero-para mt-6 text-white/80 text-base md:text-lg max-w-md leading-relaxed">
               A sanctuary of elegance where every detail is crafted for your comfort and delight.
             </p>
 
             <div className="mt-10 flex flex-wrap gap-4">
               <Link
                 to="/rooms"
-                className="inline-flex items-center gap-2 bg-[#cbb19d] text-white px-8 py-3.5 rounded-full font-medium hover:bg-[#b89f8a] transition-all duration-300 shadow-lg shadow-[#cbb19d]/30"
+                className="hero-btn inline-flex items-center gap-2 bg-[#cbb19d] text-white px-8 py-3.5 rounded-full font-medium hover:bg-[#b89f8a] transition-all duration-300 shadow-lg shadow-[#cbb19d]/30"
               >
                 Explore Rooms <ArrowRight size={18} />
               </Link>
               <Link
                 to="/register"
-                className="inline-flex items-center gap-2 border border-white/50 text-white px-8 py-3.5 rounded-full font-medium hover:bg-white/10 backdrop-blur-sm transition-all duration-300"
+                className="hero-btn inline-flex items-center gap-2 border border-white/50 text-white px-8 py-3.5 rounded-full font-medium hover:bg-white/10 backdrop-blur-sm transition-all duration-300"
               >
                 Register as Guest
               </Link>
@@ -60,7 +100,7 @@ const Hero = () => {
         <div className="absolute bottom-0 left-0 right-0 bg-black/30 backdrop-blur-md border-t border-white/10">
           <div className="max-w-4xl mx-auto px-8 py-5 grid grid-cols-3 gap-4 text-center">
             {[["500+","Luxury Rooms"],["98%","Guest Satisfaction"],["24/7","Concierge Service"]].map(([num,label]) => (
-              <div key={label}>
+              <div key={label} className="hero-stat">
                 <div className="text-white font-serif text-2xl font-semibold">{num}</div>
                 <div className="text-white/60 text-xs mt-1">{label}</div>
               </div>

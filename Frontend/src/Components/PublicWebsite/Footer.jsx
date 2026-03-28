@@ -1,18 +1,35 @@
-import React from "react";
+import React, { useRef } from "react";
 import Logo from "../../assets/logo.png";
 import { Link } from "react-router-dom";
 import { MapPin, Phone, Mail, Instagram, Facebook, Twitter } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useGSAP } from "@gsap/react";
+
+gsap.registerPlugin(ScrollTrigger);
 
 const Footer = () => {
   const { dark } = useTheme();
+  const footerRef = useRef(null);
+
+  useGSAP(() => {
+    gsap.fromTo(
+      ".footer-col",
+      { opacity: 0, y: 40 },
+      {
+        opacity: 1, y: 0, duration: 0.7, stagger: 0.12, ease: "power3.out",
+        scrollTrigger: { trigger: footerRef.current, start: "top 90%", toggleActions: "play none none none" }
+      }
+    );
+  }, { scope: footerRef });
 
   return (
-    <footer className={`pt-16 pb-8 border-t ${dark ? "bg-[#0d0d0d] border-gray-800" : "bg-[#faf8f6] border-gray-200"}`}>
+    <footer ref={footerRef} className={`pt-16 pb-8 border-t ${dark ? "bg-[#0d0d0d] border-gray-800" : "bg-[#faf8f6] border-gray-200"}`}>
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
           {/* Brand */}
-          <div className="md:col-span-1">
+          <div className="footer-col md:col-span-1">
             <img src={Logo} alt="LuxuryStay" className="h-12 mb-4" />
             <p className={`text-sm leading-relaxed ${dark ? "text-gray-400" : "text-gray-500"}`}>
               Where refined elegance meets exceptional comfort. Your perfect stay awaits.
@@ -27,7 +44,7 @@ const Footer = () => {
           </div>
 
           {/* Quick Links */}
-          <div>
+          <div className="footer-col">
             <h4 className={`font-semibold text-sm uppercase tracking-widest mb-5 ${dark ? "text-gray-300" : "text-gray-800"}`}>Quick Links</h4>
             <ul className="space-y-3">
               {[["Home","/"],["Rooms","/rooms"],["Services","/services"],["About","/about"],["Contact","/contact"]].map(([name,path]) => (
@@ -39,7 +56,7 @@ const Footer = () => {
           </div>
 
           {/* Services */}
-          <div>
+          <div className="footer-col">
             <h4 className={`font-semibold text-sm uppercase tracking-widest mb-5 ${dark ? "text-gray-300" : "text-gray-800"}`}>Services</h4>
             <ul className="space-y-3">
               {["Room Service","Restaurant","Laundry","Airport Pickup","Pool & Gym","Wake-up Call"].map((s) => (
@@ -49,7 +66,7 @@ const Footer = () => {
           </div>
 
           {/* Contact */}
-          <div>
+          <div className="footer-col">
             <h4 className={`font-semibold text-sm uppercase tracking-widest mb-5 ${dark ? "text-gray-300" : "text-gray-800"}`}>Contact Us</h4>
             <ul className="space-y-4">
               <li className="flex gap-3 items-start">

@@ -373,17 +373,6 @@ const RequestServices = () => {
     ? HOUSEKEEPING_PRIORITIES
     : MAINTENANCE_PRIORITIES;
 
-  if (!isGuest) {
-    return (
-      <div className="bg-white rounded-xl border border-red-200 shadow-sm p-8 text-center">
-        <p className="text-lg font-semibold text-red-600">Access Denied</p>
-        <p className="text-sm text-gray-500 mt-2">
-          This page is only available for guest accounts.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

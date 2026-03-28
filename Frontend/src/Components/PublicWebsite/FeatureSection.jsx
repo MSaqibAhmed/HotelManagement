@@ -1,6 +1,11 @@
-import React from "react";
-import { ShieldCheck, BadgeCheck, CalendarCheck, Headphones, Wifi, Car } from "lucide-react";
+import React, { useRef } from "react";
+import { ShieldCheck, BadgeCheck, CalendarCheck, Headphones } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useGSAP } from "@gsap/react";
+
+gsap.registerPlugin(ScrollTrigger);
 
 const features = [
   { icon: ShieldCheck, title: "Verified Hotel", desc: "Every property is verified for quality, cleanliness & safety standards." },
@@ -11,14 +16,27 @@ const features = [
 
 const FeatureSection = () => {
   const { dark } = useTheme();
+  const sectionRef = useRef(null);
+
+  useGSAP(() => {
+    gsap.fromTo(
+      ".feature-card",
+      { opacity: 0, y: 50, scale: 0.95 },
+      {
+        opacity: 1, y: 0, scale: 1, duration: 0.6, stagger: 0.12, ease: "power3.out",
+        scrollTrigger: { trigger: ".feature-card", start: "top 85%", toggleActions: "play none none none" }
+      }
+    );
+  }, { scope: sectionRef });
+
   return (
-    <section className={`py-16 ${dark ? "bg-[#0f0f0f]" : "bg-[#faf8f6]"}`}>
+    <section ref={sectionRef} className={`py-16 ${dark ? "bg-[#0f0f0f]" : "bg-[#faf8f6]"}`}>
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {features.map((item, index) => (
             <div
               key={index}
-              className={`rounded-2xl p-6 border transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${
+              className={`feature-card rounded-2xl p-6 border transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${
                 dark
                   ? "bg-[#1a1a1a] border-gray-800 hover:border-[#cbb19d]/30"
                   : "bg-white border-[#e8dfd7] hover:shadow-[#cbb19d]/10"

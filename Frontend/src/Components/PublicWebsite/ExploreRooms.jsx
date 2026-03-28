@@ -1,20 +1,25 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 import RoomCard from "./RoomCard";
 import api from "../../api";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useGSAP } from "@gsap/react";
+
+gsap.registerPlugin(ScrollTrigger);
 
 const ExploreRooms = () => {
   const { dark } = useTheme();
   const [featured, setFeatured] = useState([]);
   const [loading, setLoading] = useState(true);
+  const sectionRef = useRef(null);
 
   useEffect(() => {
     const fetchRooms = async () => {
       try {
         const { data } = await api.get("/room/public/getrooms");
-        // Only slice the first 3 for the home page — prefer available rooms first
         const sorted = (data.rooms || []).sort((a, b) =>
           a.status === "Available" ? -1 : b.status === "Available" ? 1 : 0
         );
@@ -28,12 +33,31 @@ const ExploreRooms = () => {
     fetchRooms();
   }, []);
 
+  useGSAP(() => {
+    gsap.fromTo(
+      ".explore-header",
+      { opacity: 0, y: 40 },
+      {
+        opacity: 1, y: 0, duration: 0.8, ease: "power3.out",
+        scrollTrigger: { trigger: ".explore-header", start: "top 85%", toggleActions: "play none none none" }
+      }
+    );
+
+    gsap.fromTo(
+      ".explore-card",
+      { opacity: 0, y: 60, scale: 0.95 },
+      {
+        opacity: 1, y: 0, scale: 1, duration: 0.7, stagger: 0.15, ease: "power3.out",
+        scrollTrigger: { trigger: ".explore-card", start: "top 85%", toggleActions: "play none none none" }
+      }
+    );
+  }, { scope: sectionRef, dependencies: [featured] });
+
   return (
-    <section className={`py-20 px-6 ${dark ? "bg-[#0f0f0f]" : "bg-[#faf8f6]"}`}>
+    <section ref={sectionRef} className={`py-20 px-6 ${dark ? "bg-[#0f0f0f]" : "bg-[#faf8f6]"}`}>
       <div className="max-w-6xl mx-auto">
 
-        {/* ── Header ── */}
-        <div className="flex items-center justify-between mb-10">
+        <div className="explore-header flex items-center justify-between mb-10">
           <h2 className={`text-2xl md:text-3xl font-serif ${dark ? "text-white" : "text-gray-900"}`}>
             Explore Our Rooms
           </h2>
@@ -47,19 +71,19 @@ const ExploreRooms = () => {
           </Link>
         </div>
 
-        {/* ── Cards grid ── */}
         {loading ? (
           <div className="text-center py-10 text-gray-500">Loading rooms...</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {featured.map((room) => (
-              <RoomCard
-                key={room._id}
-                id={room._id}
-                title={room.roomName || room.roomNumber}
-                price={room.pricing?.basePrice}
-                img={room.coverImage?.url || "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80"}
-              />
+              <div key={room._id} className="explore-card">
+                <RoomCard
+                  id={room._id}
+                  title={room.roomName || room.roomNumber}
+                  price={room.pricing?.basePrice}
+                  img={room.coverImage?.url || "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80"}
+                />
+              </div>
             ))}
           </div>
         )}

@@ -1,8 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Star, MessageSquarePlus, X, CheckCircle } from "lucide-react";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import api from "../../api";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useGSAP } from "@gsap/react";
+
+gsap.registerPlugin(ScrollTrigger);
+
 const FALLBACK = [
   { guestSnapshot: { name: "Sarah Mitchell" }, rating: 5, category: "Stay", message: "An absolutely stunning experience. The staff went above and beyond to make my stay memorable. The room was immaculate and the service was world-class." },
   { guestSnapshot: { name: "James Thornton" }, rating: 5, category: "Stay", message: "We chose LuxuryStay for our honeymoon and it was perfect. The attention to detail, the beautiful rooms, and the spectacular views made it unforgettable." },
@@ -109,6 +115,7 @@ const Testimonials = () => {
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const sectionRef = useRef(null);
 
   const user = safeUser();
   const isGuest = String(user?.role || "").toLowerCase() === "guest" && Boolean(user?._id);
@@ -129,8 +136,27 @@ const Testimonials = () => {
   useEffect(() => { fetchFeedbacks(); }, []);
 
   const onFeedbackSuccess = () => {
-    setTimeout(fetchFeedbacks, 800); // re-fetch after a short delay
+    setTimeout(fetchFeedbacks, 800);
   };
+
+  useGSAP(() => {
+    gsap.fromTo(
+      ".testimonials-header",
+      { opacity: 0, y: 40 },
+      {
+        opacity: 1, y: 0, duration: 0.8, ease: "power3.out",
+        scrollTrigger: { trigger: ".testimonials-header", start: "top 85%", toggleActions: "play none none none" }
+      }
+    );
+    gsap.fromTo(
+      ".testimonial-card",
+      { opacity: 0, y: 50, scale: 0.96 },
+      {
+        opacity: 1, y: 0, scale: 1, duration: 0.65, stagger: 0.12, ease: "power3.out",
+        scrollTrigger: { trigger: ".testimonial-card", start: "top 85%", toggleActions: "play none none none" }
+      }
+    );
+  }, { scope: sectionRef, dependencies: [feedbacks] });
 
   const card = dark ? "bg-[#1a1a1a] border-gray-800" : "bg-[#faf8f6] border-gray-100";
   const mutedTxt = dark ? "text-gray-300" : "text-gray-600";
@@ -148,10 +174,10 @@ const Testimonials = () => {
         />
       )}
 
-      <section className={`py-20 px-6 ${dark ? "bg-[#111111]" : "bg-white"}`}>
+      <section ref={sectionRef} className={`py-20 px-6 ${dark ? "bg-[#111111]" : "bg-white"}`}>
         <div className="max-w-7xl mx-auto">
           {/* Header */}
-          <div className="text-center mb-14">
+          <div className="testimonials-header text-center mb-14">
             <p className="text-[#cbb19d] text-sm font-medium uppercase tracking-widest mb-2">Guest Stories</p>
             <h2 className={`text-3xl md:text-4xl font-serif mb-4 ${titleTxt}`}>What Our Guests Say</h2>
             {isGuest && (
@@ -174,7 +200,7 @@ const Testimonials = () => {
               const role = t.category || "Guest";
 
               return (
-                <div key={t._id || i} className={`p-7 rounded-2xl border ${card} flex flex-col`}>
+                <div key={t._id || i} className={`testimonial-card p-7 rounded-2xl border ${card} flex flex-col`}>
                   {/* Stars */}
                   <div className="flex gap-1 mb-4">
                     {[...Array(5)].map((_, j) => (

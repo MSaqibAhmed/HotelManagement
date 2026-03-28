@@ -117,18 +117,6 @@ const CheckOut = () => {
     }
   };
 
-  // ✅ Role restriction UI
-  if (!canCheckOutRole(role)) {
-    return (
-      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-lg">
-        <h1 className="text-2xl font-bold text-[#1e266d]">Check-Out</h1>
-        <p className="text-sm text-gray-500 mt-2">
-          Access denied. Only <b>Admin</b> and <b>Receptionist</b> can check-out reservations.
-        </p>
-      </div>
-    );
-  }
-
   // overdue helper (date compare)
   const todayISO = new Date().toISOString().split("T")[0];
 

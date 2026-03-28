@@ -22,6 +22,10 @@ app.use(cors({
 
 app.use(express.json());
 
+app.get("/run", (req, res) => {
+  res.send("API is running");
+});
+
 connectDb();
 
 app.use('/api/auth', authRoutes)

@@ -6,6 +6,8 @@ import {
 } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 import api from "../../api";
+import LazyImage from "../../Components/LazyImage";
+import AnimatedSection from "../../Components/AnimatedSection";
 
 /* ─── Login-Required Modal ─── */
 const LoginModal = ({ onClose, onRegister, onLogin }) => (
@@ -163,91 +165,97 @@ const RoomDetailPage = () => {
           <div className="grid lg:grid-cols-2 gap-12">
             {/* ── Images ── */}
             <div>
-              <div className="rounded-2xl overflow-hidden h-80 md:h-96 shadow-xl">
-                <img
-                  src={allImgs[activeImg]}
-                  alt={room.roomName || room.roomNumber}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              {allImgs.length > 1 && (
-                <div className="flex gap-3 mt-4">
-                  {allImgs.slice(0, 4).map((img, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setActiveImg(i)}
-                      className={`rounded-xl overflow-hidden h-20 flex-1 border-2 transition-all ${
-                        activeImg === i ? "border-[#cbb19d]" : "border-transparent opacity-60 hover:opacity-100"
-                      }`}
-                    >
-                      <img src={img} alt="" className="w-full h-full object-cover" />
-                    </button>
-                  ))}
+              <AnimatedSection animation="fade-in">
+                <div className="rounded-2xl overflow-hidden h-80 md:h-96 shadow-xl relative">
+                  <LazyImage
+                    src={allImgs[activeImg]}
+                    alt={room.roomName || room.roomNumber}
+                    className="w-full h-full object-cover absolute inset-0"
+                  />
                 </div>
+              </AnimatedSection>
+              {allImgs.length > 1 && (
+                <AnimatedSection animation="fade-up" delay={0.2}>
+                  <div className="flex gap-3 mt-4">
+                    {allImgs.slice(0, 4).map((img, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setActiveImg(i)}
+                        className={`rounded-xl overflow-hidden h-20 flex-1 border-2 transition-all relative ${
+                          activeImg === i ? "border-[#cbb19d]" : "border-transparent opacity-60 hover:opacity-100"
+                        }`}
+                      >
+                        <LazyImage src={img} alt="" className="w-full h-full object-cover absolute inset-0" />
+                      </button>
+                    ))}
+                  </div>
+                </AnimatedSection>
               )}
             </div>
 
             {/* ── Info ── */}
-            <div>
-              {/* Type badge + stars (no status badge) */}
-              <div className="flex items-start justify-between gap-4 mb-2">
-                <span className={`text-xs font-medium px-3 py-1 rounded-full ${dark ? "bg-gray-800 text-gray-300" : "bg-gray-100 text-gray-600"}`}>
-                  {room.roomType}
-                </span>
-                <div className="flex gap-0.5">
-                  {[...Array(5)].map((_, i) => <Star key={i} size={14} className="text-[#cbb19d] fill-[#cbb19d]" />)}
+            <AnimatedSection animation="slide-left" delay={0.2}>
+              <div>
+                {/* Type badge + stars (no status badge) */}
+                <div className="flex items-start justify-between gap-4 mb-2">
+                  <span className={`text-xs font-medium px-3 py-1 rounded-full ${dark ? "bg-gray-800 text-gray-300" : "bg-gray-100 text-gray-600"}`}>
+                    {room.roomType}
+                  </span>
+                  <div className="flex gap-0.5">
+                    {[...Array(5)].map((_, i) => <Star key={i} size={14} className="text-[#cbb19d] fill-[#cbb19d]" />)}
+                  </div>
+                </div>
+
+                <h1 className={`text-3xl md:text-4xl font-serif mt-3 ${text}`}>
+                  {room.roomName || room.roomNumber}
+                </h1>
+
+                {/* Price - PKR */}
+                <div className="flex items-baseline gap-1 mt-4">
+                  <span className="text-[#cbb19d] font-serif text-4xl font-semibold">PKR {room.pricing?.basePrice?.toLocaleString()}</span>
+                  <span className={`text-sm ${muted}`}>/ night</span>
+                </div>
+
+                {/* Quick stats — Lucide icons only */}
+                <div className={`grid grid-cols-3 gap-3 mt-6 p-4 rounded-xl border ${card}`}>
+                  {[
+                    [Users,    `${room.capacity} Guests`],
+                    [BedDouble, `${room.bedNumber} ${room.bedType}`],
+                    [Maximize2, `${room.roomSize}`],
+                  ].map(([Icon, val], i) => (
+                    <div key={i} className="text-center">
+                      <Icon size={20} className="text-[#cbb19d] mx-auto mb-1" />
+                      <span className={`text-xs ${muted}`}>{val}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Description */}
+                <p className={`mt-6 text-sm leading-relaxed ${text} whitespace-pre-wrap`}>
+                  <span className="font-semibold block mb-1">Description:</span>
+                  {room.roomDescription}
+                </p>
+
+                {/* Policies */}
+                <div className={`mt-7 p-4 rounded-xl border ${card}`}>
+                  <h3 className={`font-semibold text-sm mb-3 ${text}`}>Policies</h3>
+                  <p className={`text-xs whitespace-pre-wrap ${muted}`}>{room.reserveCondition}</p>
+                </div>
+
+                {/* ── CREATE RESERVATION BUTTON — always shown ── */}
+                <div className="mt-8">
+                  <button
+                    onClick={handleReservationClick}
+                    className="w-full flex items-center justify-center gap-2 bg-[#cbb19d] hover:bg-[#b89f8a]
+                               text-white py-3.5 rounded-full font-medium transition-all
+                               shadow-lg shadow-[#cbb19d]/25 active:scale-95"
+                  >
+                    <CalendarCheck size={18} />
+                    Create Reservation
+                  </button>
                 </div>
               </div>
-
-              <h1 className={`text-3xl md:text-4xl font-serif mt-3 ${text}`}>
-                {room.roomName || room.roomNumber}
-              </h1>
-
-              {/* Price - PKR */}
-              <div className="flex items-baseline gap-1 mt-4">
-                <span className="text-[#cbb19d] font-serif text-4xl font-semibold">PKR {room.pricing?.basePrice?.toLocaleString()}</span>
-                <span className={`text-sm ${muted}`}>/ night</span>
-              </div>
-
-              {/* Quick stats — Lucide icons only */}
-              <div className={`grid grid-cols-3 gap-3 mt-6 p-4 rounded-xl border ${card}`}>
-                {[
-                  [Users,    `${room.capacity} Guests`],
-                  [BedDouble, `${room.bedNumber} ${room.bedType}`],
-                  [Maximize2, `${room.roomSize}`],
-                ].map(([Icon, val], i) => (
-                  <div key={i} className="text-center">
-                    <Icon size={20} className="text-[#cbb19d] mx-auto mb-1" />
-                    <span className={`text-xs ${muted}`}>{val}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Description */}
-              <p className={`mt-6 text-sm leading-relaxed ${text} whitespace-pre-wrap`}>
-                <span className="font-semibold block mb-1">Description:</span>
-                {room.roomDescription}
-              </p>
-
-              {/* Policies */}
-              <div className={`mt-7 p-4 rounded-xl border ${card}`}>
-                <h3 className={`font-semibold text-sm mb-3 ${text}`}>Policies</h3>
-                <p className={`text-xs whitespace-pre-wrap ${muted}`}>{room.reserveCondition}</p>
-              </div>
-
-              {/* ── CREATE RESERVATION BUTTON — always shown ── */}
-              <div className="mt-8">
-                <button
-                  onClick={handleReservationClick}
-                  className="w-full flex items-center justify-center gap-2 bg-[#cbb19d] hover:bg-[#b89f8a]
-                             text-white py-3.5 rounded-full font-medium transition-all
-                             shadow-lg shadow-[#cbb19d]/25 active:scale-95"
-                >
-                  <CalendarCheck size={18} />
-                  Create Reservation
-                </button>
-              </div>
-            </div>
+            </AnimatedSection>
           </div>
         </div>
       </div>

@@ -7,15 +7,29 @@ import Amenities from "../../Components/PublicWebsite/Amenities";
 import Testimonials from "../../Components/PublicWebsite/Testimonials";
 import FAQ from "../../Components/PublicWebsite/FAQ";
 
+import AnimatedSection from "../../Components/AnimatedSection";
+
 const HomePage = () => (
   <>
     <Hero />
-    <FeatureSection />
-    <ExploreRooms />
-    <About />
-    <Amenities />
-    <Testimonials />
-    <FAQ />
+    <AnimatedSection animation="fade-up">
+      <FeatureSection />
+    </AnimatedSection>
+    <AnimatedSection animation="fade-up" delay={0.2}>
+      <ExploreRooms />
+    </AnimatedSection>
+    <AnimatedSection animation="slide-left" delay={0.2}>
+      <About />
+    </AnimatedSection>
+    <AnimatedSection animation="slide-right" delay={0.2}>
+      <Amenities />
+    </AnimatedSection>
+    <AnimatedSection animation="fade-up" delay={0.2}>
+      <Testimonials />
+    </AnimatedSection>
+    <AnimatedSection animation="fade-up" delay={0.2}>
+      <FAQ />
+    </AnimatedSection>
   </>
 );
 

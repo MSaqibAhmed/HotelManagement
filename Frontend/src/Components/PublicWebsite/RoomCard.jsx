@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
+import LazyImage from "../LazyImage";
 
 const RoomCard = ({ id, title, price, img, status, type }) => {
   const { dark } = useTheme();
@@ -10,7 +11,7 @@ const RoomCard = ({ id, title, price, img, status, type }) => {
 
       {/* ── IMAGE ── */}
       <div className="relative rounded-2xl overflow-hidden" style={{ aspectRatio: "3/3.5" }}>
-        <img
+        <LazyImage
           src={img}
           alt={title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"

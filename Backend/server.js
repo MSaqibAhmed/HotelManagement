@@ -12,9 +12,19 @@ import maintainenceRoutes from './Routes/maintainenceRoutes.js';
 import dashboardRoutes from './Routes/dashboardRoutes.js';
 
 const app = express();
-app.use(cors())
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "https://hotelmanagement-steel.vercel.app/home"
+  ],
+  credentials: true,
+}));
 
 app.use(express.json());
+
+app.get("/run", (req, res) => {
+  res.send("API is running");
+});
 
 connectDb();
 

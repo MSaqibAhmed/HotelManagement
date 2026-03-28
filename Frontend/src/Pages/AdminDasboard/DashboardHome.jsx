@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect, useRef } from "react";
 import StatCard from "../../Components/Dashboard/StatCard";
 import ReservationChart from "../../Components/Dashboard/ReservationChart";
 import BookingTable from "../../Components/Dashboard/BookingTable";
-import axios from "axios";
+import api from "../../api";
 import { toast } from "react-toastify";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
@@ -26,7 +26,7 @@ const DashboardHome = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        const res = await axios.get("http://localhost:5000/api/dashboard/stats", {
+        const res = await api.get("/dashboard/stats", {
           headers: {
             Authorization: `Bearer ${token}`
           }

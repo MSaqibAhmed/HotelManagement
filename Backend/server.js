@@ -15,7 +15,7 @@ const app = express();
 app.use(cors({
   origin: [
     "http://localhost:5173",
-    "https://hotelmanagement-steel.vercel.app/home"
+    "https://hotelmanagement-steel.vercel.app"
   ],
   credentials: true,
 }));

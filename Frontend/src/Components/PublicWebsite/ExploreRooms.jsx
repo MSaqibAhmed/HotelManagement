@@ -43,14 +43,16 @@ const ExploreRooms = () => {
       }
     );
 
-    gsap.fromTo(
-      ".explore-card",
-      { opacity: 0, y: 60, scale: 0.95 },
-      {
-        opacity: 1, y: 0, scale: 1, duration: 0.7, stagger: 0.15, ease: "power3.out",
-        scrollTrigger: { trigger: ".explore-card", start: "top 85%", toggleActions: "play none none none" }
-      }
-    );
+    if (featured.length > 0) {
+      gsap.fromTo(
+        ".explore-card",
+        { opacity: 0, y: 60, scale: 0.95 },
+        {
+          opacity: 1, y: 0, scale: 1, duration: 0.7, stagger: 0.15, ease: "power3.out",
+          scrollTrigger: { trigger: ".explore-card", start: "top 85%", toggleActions: "play none none none" }
+        }
+      );
+    }
   }, { scope: sectionRef, dependencies: [featured] });
 
   return (

@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://hotelmanagement-staging.up.railway.app/api",
+  baseURL: "https://hotel-management-seven-jet.vercel.app/api",
 });
 
 api.interceptors.request.use((config) => {
